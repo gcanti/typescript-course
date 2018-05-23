@@ -1,0 +1,2893 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[all]{xy}
+\usepackage{bigfoot}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usepackage{verbatim}
+\usepackage{xcolor}
+\usepackage{minted}
+\usepackage{amsthm}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definizione}[section]
+\newtheorem{example}{Esempio}[subsection]
+\newtheorem{exercise}{Esercizio}[subsection]
+
+\newenvironment{boxed}
+    {\begin{center}
+    \begin{tabular}{|p{0.9\textwidth}|}
+    \hline\\
+    }
+    {
+    \\\\\hline
+    \end{tabular}
+    \end{center}
+    }
+
+\definecolor{LightGray}{rgb}{0.98,0.98,0.98}
+\newminted{typescript}{fontfamily=tt,bgcolor=LightGray}
+
+\newenvironment{code}
+  {\vspace{0.5cm} \VerbatimEnvironment\begin{typescriptcode}}
+  {\end{typescriptcode} \vspace{0.2cm}}
+
+\title{Writing strongly typed code in TypeScript}
+\author{Giulio Canti}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+
+\newpage
+
+\section{Introduzione}
+
+Questo corso mira ad esporre una serie di tecniche per sfruttare al massimo la \emph{type safety} che offre il linguaggio TypeScript.
+
+\begin{quote}
+Type safe usually refers to languages that ensure that an operation is working on the right kind of data at some point
+before the operation is actually performed. This may be at compile time or at runtime.
+\end{quote}
+
+\textbf{Obbiettivo} (ambizioso): eliminare gli errori a runtime
+
+\begin{tikzpicture}
+  \draw[->] (0,0) -- (6,0) node[right] {sforzo};
+  \draw[->] (0,0) -- (0,3) node[above] {type safety};
+  \draw[scale=2,domain=0:1.4,smooth,variable=\x,black]  plot ({\x*\x*\x},{\x});
+\end{tikzpicture}
+
+\subsection{Prerequisiti}
+
+\begin{itemize}
+  \item \texttt{node e npm}
+  \item \texttt{typescript@2.8.3}
+  \item \texttt{typings-checker@2.0.0}
+  \item \texttt{tsconfig.json} con il flag \texttt{strict:true}
+  \item \texttt{ts-node@6.0.4}
+  \item (consigliato) \texttt{prettier@1.11.1+}
+  \item (consigliato) \texttt{VS Code}
+\end{itemize}
+
+\begin{verbatim}
+npm i -g typescript@2.8.3 ts-node@6.0.4
+git clone https://github.com/gcanti/typescript-course.git
+cd typescript-course
+npm install
+\end{verbatim}
+
+\subsection{Come eseguire i test}
+
+\begin{verbatim}
+npm test -- src/<file>
+\end{verbatim}
+
+\subsection{Il type system di TypeScript è strutturale}
+
+\begin{quote}
+TypeScript is a structural type system. When we compare two different types, regardless of where they came from,
+if the types of all members are compatible, then we say the types themselves are compatible. - Documentazione ufficiale
+\end{quote}
+
+\begin{example}
+Due classi sono compatibili se sono compatibili i loro campi
+
+\begin{code}
+class A {}
+
+class B {}
+
+class C {
+  constructor(public value: number) {}
+}
+
+declare function f(a: A): void
+
+f(new A())
+f(new B())
+f(new C(1))
+f({})
+f(f)
+
+declare function g(c: C): void
+
+g(new C(1))
+g(new A()) // error
+\end{code}
+\end{example}
+
+\subsection{Funzioni parziali}
+
+\begin{definition}
+Una funzione \emph{parziale} $f: X \rightarrow Y$ è una funzione che non è definita per tutti i valori del suo dominio $X$
+($Y$ è chiamato il codominio).
+\end{definition}
+
+Viceversa una funzione definita per tutti i valori del dominio è detta \emph{totale}.
+
+\begin{example}
+$$
+f(x) = \frac{1}{x}
+$$
+\end{example}
+
+La funzione $f: number \rightarrow number$ non è definita per $x = 0$.
+
+\begin{example}
+La funzione \texttt{head}
+
+\begin{code}
+// il codominio di questa funzione dovrebbe
+// essere number | undefined ma il type-checker
+// non mi avverte!
+const head = (xs: Array<number>): number => {
+  return xs[0]
+}
+
+const x: number = head([]) // no error
+\end{code}
+\end{example}
+
+\begin{example}
+La funzione \texttt{readFileSync}
+
+\begin{code}
+import * as fs from 'fs'
+
+fs.readFileSync('') // throws no such file or directory
+\end{code}
+\end{example}
+
+Una funzione parziale $f: X \rightarrow Y$ può essere sempre ricondotta ad una funzione totale $f'$ aggiungendo un valore speciale,
+chiamiamolo $None \notin Y$, al codominio e associandolo ad ogni valore di $X$ per cui $f$ non è definita
+
+$$
+f': X \rightarrow Y \cup None
+$$
+
+Chiamiamo $Option(Y)$ l'insieme $Y \cup None$.
+
+$$
+f': X \rightarrow Option(Y)
+$$
+
+Torneremo a parlare del tipo \texttt{Option} più avanti.
+
+\begin{boxed}
+Quando possibile, cercate di definire funzioni totali
+\end{boxed}
+
+\subsection{Strutture dati immutabili}
+
+In TypeScript usare strutture dati mutabili può condurre ad errori a runtime
+
+\begin{code}
+const xs: Array<string> = ["foo", "bar"]
+const ys: Array<string | undefined> = xs
+ys.push(undefined)
+xs.map(s => s.trim())
+// runtime error:
+// Cannot read property 'trim' of undefined
+\end{code}
+
+\begin{boxed}
+Quando possibile, cercate di usare strutture dati immutabili
+\end{boxed}
+
+\subsection{I tipi \texttt{any} e \texttt{never}}
+
+Se pensiamo ai tipi come insiemi, allora gli \emph{abitanti} di un tipo sono gli elementi di quell'insieme.
+
+\begin{code}
+// gli abitanti sono tutte le stringhe
+type A = string
+
+// gli abitanti sono tutti i numeri
+type B = number
+
+// questo è un "literal type" e contiene un solo abitante:
+// la stringa "foo"
+type C = "foo"
+
+// quanti abitanti ha questo tipo?
+type D = 0 | 1
+\end{code}
+
+\begin{definition}
+Un tipo \texttt{A} si dice \emph{sottotipo} di un tipo \texttt{B} se ogni abitante di \texttt{A} è abitante di \texttt{B}.
+
+Si dice \emph{supertipo} se vale la proprietà inversa.
+\end{definition}
+
+\begin{example}
+Il tipo \texttt{C} è sottotipo del tipo \texttt{string}.
+Il tipo \texttt{number} è supertipo del tipo \texttt{D}
+\end{example}
+
+\begin{exercise}
+In che relazione sono i seguenti tipi?
+
+\begin{code}
+type E = { a: string }
+type F = { b: number, a: string }
+\end{code}
+\end{exercise}
+
+\begin{definition}
+Un tipo \texttt{X} si dice \emph{bottom type} se è sottotipo di ogni altro tipo
+\end{definition}
+
+Il tipo \texttt{never} non contiene abitanti ed è un \emph{bottom type}.
+
+\begin{definition}
+Un tipo \texttt{X} si dice \emph{top type} se è supertipo di ogni altro tipo
+\end{definition}
+
+Il tipo \texttt{any} è sia \emph{top type} sia \emph{bottom type}.
+
+\begin{boxed}
+Cercate di utilizzare \texttt{any} solo nelle implementazioni e non nelle firme
+\end{boxed}
+
+\newpage
+
+\section{Tour delle feature avanzate}
+
+Facciamo un tour delle feature avanzate che offre il type system di TypeScript.
+
+\subsection{Inline declarations}
+
+Le dichiarazione all'interno del codice invece che nei definition file sono particolarmente utili quando si stia esplorando
+una soluzione e per fare velocemente delle prove di type checking.
+
+\begin{example}
+Costanti, variabili, funzioni e classi
+
+\begin{code}
+// costanti
+declare const a: number
+declare const g: (x: number) => void
+
+// variabili
+declare let b: number
+
+// funzioni
+declare function f(x: string): number
+
+// classi
+declare class Foo {
+  public value: string
+  constructor(value: string)
+}
+\end{code}
+\end{example}
+
+\begin{exercise}
+Provate a definire e usare la funzione \texttt{f}
+\end{exercise}
+
+\subsection{Overloading}
+
+Gli overloading servono a rendere più precise le firme delle funzioni.
+
+\begin{example}
+Vediamo un esempio pratico.
+
+\begin{itemize}
+  \item la funzione \texttt{f} deve restituire un numero se l'input è una stringa
+  \item la funzione \texttt{f} deve restituire una stringa se l'input è un numero
+\end{itemize}
+
+Usare un'unione non è soddisfacente
+
+\begin{code}
+declare function f(x: string | number): number | string
+
+// x1: string | number
+const x1 = f("foo")
+// x2: string | number
+const x2 = f(1)
+\end{code}
+
+Definendo due overloading possiamo rendere preciso il comportamento
+
+\begin{code}
+declare function g(x: number): string
+declare function g(x: string): number
+declare function g(
+  x: string | number
+): number | string
+
+// x3: number
+const x3 = g("foo")
+// x4: string
+const x4 = g(1)
+\end{code}
+
+La terza firma di \texttt{g} serve a guidare l'implementazione e \textbf{non comparirà nel definition file}
+generato da TypeScript se \texttt{declaration = true} nel
+
+\texttt{tsconfig.json}.
+
+Gli overloading possono essere definiti anche per i metodi di una classe.
+
+\begin{exercise}
+Tipizzare la funzione \texttt{compose}
+\end{exercise}
+
+\end{example}
+
+\subsection{Polimorfismo}
+
+\begin{quote}
+Parametric polymorphism refers to when the type of a value contains one or more (unconstrained) type variables,
+so that the value may adopt any type that results from substituting those variables with concrete types.
+\end{quote}
+
+Una funzione viene detta \emph{polimorfica} se può gestire diversi tipi parametrizzati da uno o più \emph{type parameter},
+\emph{monomorfica} altrimenti.
+
+\begin{code}
+// una funzione monomorfica
+const head = (xs: Array<number>): number | undefined => {
+  return xs[0]
+}
+
+// una funzione polimorfica
+const head = <A>(xs: Array<A>): A | undefined => {
+  return xs[0]
+}
+\end{code}
+
+Le funzioni polimorfiche favoriscono una implementazione corretta e fanno emergere le assunzioni nascoste
+
+\begin{code}
+// compila
+const head = (xs: Array<number>): number | undefined => {
+  return 1
+}
+
+// non compila
+const head = <A>(xs: Array<A>): A | undefined => {
+  return 1
+}
+\end{code}
+
+Per esempio la funzione identità ha una e una sola implementazione possibile
+
+\begin{code}
+const id = <A>(a: A): A => a
+\end{code}
+
+\begin{boxed}
+Quando possibile, cercate di definire funzioni polimorfiche
+\end{boxed}
+
+\begin{exercise}
+Date le firme delle seguenti funzioni, cosa possiamo dire del loro comportamento?
+
+\begin{code}
+declare function f(xs: Array<number>): Array<number>
+declare function g<A>(xs: Array<A>): Array<A>
+\end{code}
+\end{exercise}
+
+\subsection{Custom type guards}
+
+Le custom type guard servono a \emph{raffinare i tipi}. Un raffinemento di un tipo \texttt{A} è un sottoinsieme \texttt{B} di \texttt{A}
+tale che per ogni elemento vale un \emph{predicato}.
+
+\begin{definition}
+Un \emph{predicato} è una funzione con la seguente firma
+
+\begin{code}
+type Predicate<A> = (a: A) => boolean
+\end{code}
+\end{definition}
+
+\begin{example}
+In TypeScript la sintassi per definire un predicato non è sufficiente per raffinare un tipo
+
+\begin{code}
+const isString = (x: any): boolean => {
+  return typeof x === "string"
+}
+
+const f = (x: string | number): number => {
+  if (isString(x)) {
+    // qui x non è raffinato
+    return x.length // error
+  } else {
+    return x // error
+  }
+}
+\end{code}
+\end{example}
+
+Invece viene utilizzata questa sintassi (che definisce una type custom guard)
+
+\begin{code}
+type Refinement<A, B extends A> = (a: A) => a is B
+\end{code}
+
+Notate che \texttt{B} \textbf{deve essere assegnabile} ad \texttt{A}
+
+\begin{example}
+Una semplice custom type guard: \texttt{isString}
+
+\begin{code}
+export const isString = (x: any): x is string => {
+  return typeof x === "string"
+}
+
+const f = (x: string | number): number => {
+  if (isString(x)) {
+    // qui x è di tipo string
+    return x.length
+  } else {
+    // qui x è di tipo number
+    return x
+  }
+}
+\end{code}
+\end{example}
+
+\begin{exercise}
+Definire una custom type guard che raffina un valore qualsiasi in un \texttt{Array<number>}
+\end{exercise}
+
+\subsection{Lifting di un valore: l'operatore \texttt{typeof}}
+
+I valori e i tipi vivono in mondi separati, però è possibile passare dal mondo dei valori a quello dei tipo
+sfruttando l'operatore \texttt{typeof}.
+
+\begin{example}
+Ricavare il tipo di un valore
+
+\begin{code}
+const x = {
+  foo: "foo",
+  baz: 1
+}
+
+type X = typeof x
+/* same as
+type X = {
+  foo: string;
+  baz: number;
+}
+*/
+\end{code}
+\end{example}
+
+\subsection{Immutabilità: il modificatore \texttt{readonly}}
+
+Il modificatore \texttt{readonly} rende immutabili i campi di un record
+
+\begin{example}
+Rendere immutabile una interfaccia
+
+\begin{code}
+interface Person {
+  readonly name: string
+  readonly age: number
+}
+
+declare const person: Person
+
+person.age = 42 // Cannot assign to 'agÈ because
+// it is a constant or a read-only property
+\end{code}
+\end{example}
+
+È possibile rendere immutabile anche una \emph{index signature}
+
+\begin{code}
+interface ImmutableDictionary {
+  readonly [key: string]: number
+}
+
+declare const dict: ImmutableDictionary
+
+dict["foo"] = 1 // Index signature in type
+// 'ImmutableDictionary' only permits reading
+\end{code}
+
+Per rendere immutabile un tipo già definito è possibile usare il tipo predefinito \texttt{Readonly}
+\footnote{Per l'implementazione di \texttt{Readonly} si veda la sezione Mapped types}
+
+\begin{code}
+interface Point {
+  x: number
+  y: number
+}
+
+type ImmutablePoint = Readonly<Point>
+/* same as
+type ImmutablePoint = {
+    readonly x: number;
+    readonly y: number;
+}
+*/
+\end{code}
+
+Per i field delle classi è possibile esprimere il modificatore \texttt{readonly} direttamente nel costruttore
+
+\begin{code}
+class Point2D {
+  constructor(readonly x: number, readonly y: number) {}
+}
+\end{code}
+
+È anche possibile rendere immutabile un array con il tipo predefinito
+\texttt{ReadonlyArray}.
+
+\begin{exercise}
+Rendere immutabile la seguente interfaccia
+
+\begin{code}
+interface Person {
+  name: {
+    first: string
+    last: string
+  }
+  interests: Array<string>
+}
+\end{code}
+\end{exercise}
+
+\subsection{Index types}
+
+\subsubsection{Index type query operator: \texttt{keyof}}
+
+Così come è possibile, dato un oggetto, ricavarne le chiavi tramite la funzione \texttt{Object.keys}
+
+\begin{code}
+const point = { x: 1, y: 2 }
+const pointKeys = Object.keys(point)
+// [ "x", "y" ]
+\end{code}
+
+così è possibile ricavare il tipo delle chiavi di un oggetto (come unione) usando l'operatore \texttt{keyof}.
+
+\begin{example}
+Estrarre le chiavi di un record
+
+\begin{code}
+interface Point {
+  x: number
+  y: number
+}
+
+type PointKeys = keyof Point
+/* same as
+type PointKeys = "x" | "y"
+*/
+\end{code}
+
+\texttt{keyof} può operare anche sugli array
+
+\begin{code}
+type ArrayKeys = keyof Array<number>
+/* same as
+type ArrayKeys = "length" | "toString" | "toLocaleString" |
+"push" | "pop" | "concat" | "join" | "reverse" | "shift" |
+"slice" | "sort" | "splice" | "unshift" | "indexOf" |
+"lastIndexOf" | "every" | "some" | "forEach" | "map" |
+"filter" | "reduce" | "reduceRight" | "entries" | "keys"
+| "values" | "find" | "findIndex" | "fill" | "copyWithin"
+*/
+\end{code}
+
+e le tuple
+
+\begin{code}
+type TupleKeys = keyof [string, number]
+/* same as
+type TupleKeys = "0" | "1" | "length" | "toString" |
+"toLocaleString" | "push" | "pop" | "concat" | "join" |
+"reverse" | "shift" | "slice" | "sort" | "splice" |
+"unshift" | "indexOf" | "lastIndexOf" | "every" |
+"some" | "forEach" | "map" | "filter" | "reduce" |
+"reduceRight" | "entries" | "keys" | "values" |
+"find" | "findIndex" | "fill" | "copyWithin"
+*/
+\end{code}
+\end{example}
+
+\begin{exercise}
+Rendere type safe la seguente funzione \texttt{translate}
+\end{exercise}
+
+\subsubsection{Indexed access operator \texttt{[]}}
+
+Così come è possibile, dato un oggetto, ricavare il valore di una sua proprietà usando l'accesso per indice
+
+\begin{code}
+const person = { name: "Giulio", age: 44 }
+const name = person["name"]
+\end{code}
+
+così l'operatore \texttt{T[K]} permette di estrarre il tipo del campo \texttt{K} dal tipo \texttt{T}
+
+\begin{example}
+Estrarre il tipo di una chiave di un record
+
+\begin{code}
+interface Person {
+  name: string
+  age: number
+}
+
+type Name = Person["name"]
+/* same as
+type Name = string
+*/
+
+type Age = Person["age"]
+/* same as
+type Age = number
+*/
+
+type Unknown = Person["foo"] // error
+\end{code}
+\end{example}
+
+\begin{exercise}
+Ricavare il tipo del campo \texttt{baz} estraendolo dalla seguente definizione
+
+\begin{code}
+interface Foo {
+  foo: {
+    bar: {
+      baz: number
+      quux: string
+    }
+  }
+}
+\end{code}
+\end{exercise}
+
+\begin{exercise}
+Ricavare il tipo delle chiavi del campo \texttt{bar} di \texttt{Foo}
+\end{exercise}
+
+\begin{exercise}
+Tipizzare la funzione \texttt{get}
+\end{exercise}
+
+\begin{exercise}
+Aggiungere degli alias a delle proprietà di una classe.
+
+Un \emph{isomorfismo} $f: S \rightarrow A$ è una funzione invertibile, ovvero esiste una funzione $f^{-1}: A \rightarrow S$ tale che
+
+$$
+f \circ f^{-1} = f^{-1} \circ f = identity
+$$
+
+\[
+\xymatrixrowsep{3cm}
+\xymatrixcolsep{3cm}
+\xymatrix{
+  S \ar@/_0.5cm/[r]_{\texttt{get}} & A \ar@/_0.5cm/[l]_{\texttt{reverseGet}}
+}
+\]
+
+\begin{code}
+/**
+ * Rappresenta un isomorfismo tra gli insiemi S e A
+ */
+class Iso<S, A> {
+  constructor(
+    readonly get: (s: S) => A,
+    readonly reverseGet: (a: A) => S
+  ) {}
+}
+\end{code}
+
+\begin{itemize}
+  \item aggiungere gli alias \texttt{unwrap} e \texttt{to} per \texttt{get}
+  \item aggiungere gli alias \texttt{wrap} e \texttt{from} per \texttt{reverseGet}
+\end{itemize}
+
+\end{exercise}
+
+\begin{exercise}
+Estrarre il tipo di una componente di una tupla
+\end{exercise}
+
+Come è possibile estrarre l'unione dei tipi di una tupla?
+
+\begin{code}
+type X = [string, number]
+
+// type ValuesOfX = string | number
+type ValuesOfX = X[number]
+\end{code}
+
+\begin{exercise}
+Tipizzare la funzione \texttt{set}
+\end{exercise}
+
+\subsection{Mapped types}
+
+TypeScript fornisce un modo per creare nuovi tipi basati su tipi già definiti, i \emph{mapped types}.
+La formula generale di un mapped type è la seguente
+
+$$
+\{ [\texttt{K in U}]: f(\texttt{K}) \}
+$$
+
+ove
+
+\begin{itemize}
+  \item \texttt{K} è una variabile
+  \item \texttt{U} è una unione
+  \item $f$ è una funzione di \texttt{K}
+\end{itemize}
+
+\begin{example}
+Creare un \emph{option object}
+
+\begin{code}
+type Flag = 'option1' | 'option2' | 'option3'
+
+type Options = { [K in Flag]: boolean }
+/* same as
+type Options = {
+    option1: boolean;
+    option2: boolean;
+    option3: boolean;
+}
+*/
+\end{code}
+\end{example}
+
+Come soluzione è possibile anche usare il tipo predefinito \texttt{Record} (vedi oltre)
+
+\begin{code}
+type Options = Record<Flag, boolean>
+\end{code}
+
+\begin{exercise}
+Creare una mappa di predicati
+\end{exercise}
+
+\begin{exercise}
+Dato lo string literal type
+
+\begin{code}
+type Key = 'foo'
+\end{code}
+
+derivare il tipo
+
+\begin{code}
+type O = {
+  foo: number
+}
+\end{code}
+\end{exercise}
+
+Vediamo ora qualche tipo predefinito definito grazie a questa feature
+
+\begin{example}
+\texttt{Partial<T>}
+
+\begin{code}
+/**
+ * Make all properties in T optional
+ */
+type Partial<T> = { [P in keyof T]?: T[P] }
+\end{code}
+\end{example}
+
+\begin{example}
+\texttt{Readonly<T>}
+
+\begin{code}
+/**
+* Make all properties in T readonly
+*/
+type Readonly<T> = { readonly [P in keyof T]: T[P] }
+\end{code}
+\end{example}
+
+\begin{example}
+\texttt{Pick<T, K>}
+
+\begin{code}
+/**
+* From T pick a set of properties K
+*/
+type Pick<T, K extends keyof T> = { [P in K]: T[P] }
+\end{code}
+\end{example}
+
+\begin{example}
+\texttt{Record<K, T>}
+
+\begin{code}
+/**
+ * Construct a type with a set of properties K of type T
+ */
+type Record<K extends string, T> = { [P in K]: T }
+\end{code}
+\end{example}
+
+\begin{exercise}
+Rendere type safe la funzione \texttt{pick}
+\end{exercise}
+
+\subsection{Subtyping e type parameter}
+
+La keyword \texttt{extends} viene usata per estendere una classe
+
+\begin{code}
+class Cat extends Animal {}
+\end{code}
+
+ma può essere usata anche per esprimere una relazioni dei type parameter.
+
+Vediamo un esempio in cui questa feature risulta utile
+
+\begin{example}
+Definire un getter generico
+
+\begin{code}
+interface Person {
+  name: string
+  age: number
+}
+
+const getName = (p: Person): string => p.name
+\end{code}
+
+La funzione \texttt{getName} è fin troppo restrittiva, accetta in input un tipo \texttt{Person} ma, data l'implementazione,
+potrebbe lavorare su qualsiasi record che contiene un campo \texttt{name} di tipo \texttt{string}
+
+\begin{code}
+const getName = <T extends { name: string }>(x: T): string =>
+  x.name
+\end{code}
+\end{example}
+
+\begin{exercise}
+Generalizzare \texttt{getName} in modo che lavori con qualsiasi record che abbia una proprietà \texttt{name}, anche se non è una stringa
+\end{exercise}
+
+\begin{exercise}
+\texttt{getName} è una funzione che lavora su un campo specifico (\texttt{name}), definire
+una funzione \texttt{getter} che, dato il nome di un campo, restituisce il getter corrispondente
+
+\begin{code}
+const getName = getter("name")
+\end{code}
+\end{exercise}
+
+\subsection{Module augmentation}
+
+\begin{example}
+Riaprire una classe modificandone il \texttt{prototype}
+
+\begin{code}
+// foo.ts
+class Foo {
+  doSomething(): string {
+    return "foo"
+  }
+}
+
+// augment.ts
+import { Foo } from "./foo"
+
+declare module "./Foo" {
+  interface Foo {
+    doSomethingElse(): number
+  }
+}
+
+Foo.prototype.doSomethingElse = function() {
+  return this.doSomething().length
+}
+\end{code}
+\end{example}
+
+\subsection{Conditional type}
+
+I \emph{conditional type} hanno la seguente sintassi
+
+\begin{code}
+T extends U ? X : Y
+\end{code}
+
+Questa scrittura significa
+
+\begin{quote}
+se \texttt{T} è assegnabile a \texttt{U} allora il tipo risultante è \texttt{X}, altrimenti è \texttt{Y}
+\end{quote}
+
+\begin{example}
+Tipizzare l'operatore \texttt{typeof}
+
+\begin{code}
+type TypeName<T> =
+    T extends string ? "string" :
+    T extends number ? "number" :
+    T extends boolean ? "boolean" :
+    T extends undefined ? "undefined" :
+    T extends Function ? "function" :
+    "object";
+
+type T0 = TypeName<string>;  // "string"
+type T1 = TypeName<'a'>;  // "string"
+type T2 = TypeName<true>;  // "boolean"
+type T3 = TypeName<() => void>;  // "function"
+type T4 = TypeName<string[]>;  // "object"
+\end{code}
+\end{example}
+
+I conditional type \emph{distribuiscono} le unioni, ovvero se per esempio
+
+\begin{code}
+T extends U ? X : Y
+\end{code}
+
+è istanziato con \texttt{T = A | B | C }, allora il conditional type è risolto in
+
+\begin{code}
+  (A extends U ? X : Y)
+| (B extends U ? X : Y)
+| (C extends U ? X : Y)
+\end{code}
+
+Vediamo qualche tipo built-in che sfrutta i conditional type
+
+\begin{example}
+\texttt{Exclude}
+
+\begin{code}
+/**
+ * Exclude from T those types that are assignable to U
+ */
+type Exclude<T, U> = T extends U ? never : T;
+\end{code}
+\end{example}
+
+\begin{example}
+\texttt{Extract}
+
+\begin{code}
+/**
+ * Extract from T those types that are assignable to U
+ */
+type Extract<T, U> = T extends U ? T : never;
+\end{code}
+\end{example}
+
+\begin{example}
+\texttt{NonNullable}
+
+\begin{code}
+/**
+ * Exclude null and undefined from T
+ */
+type NonNullable<T> = T extends null | undefined ? never : T;
+\end{code}
+\end{example}
+
+Nell clausola \texttt{extends} di un conditional type è possibile utilizzare la keyword \texttt{infer} che introduce
+una type variable da far inferire al type checker. Queste type variable possono essere poi utilizzate nel ramo positivo
+del conditional type.
+
+\begin{example}
+\texttt{ReturnType}
+
+\begin{code}
+/**
+ * Obtain the return type of a function type
+ */
+type ReturnType<T extends (...args: any[]) => any> =
+  T extends (...args: any[]) => infer R ? R : any;
+\end{code}
+\end{example}
+
+\begin{example}
+\texttt{InstanceType}
+
+\begin{code}
+/**
+ * Obtain the return type of a constructor function type
+ */
+type InstanceType<T extends new (...args: any[]) => any> =
+  T extends new (...args: any[]) => infer R ? R : any;
+\end{code}
+\end{example}
+
+\begin{example}
+\texttt{Equals} e \texttt{AssertEquals}
+
+\begin{code}
+type Equals<A, B> = [A] extends [B] ?
+  ([B] extends [A] ? 'T' : 'F') : 'F'
+
+type AssertEquals<A, B, Bool extends Equals<A, B>> = [A, Bool]
+\end{code}
+\end{example}
+
+Per ulteriori esempi, si veda:
+
+https://www.typescriptlang.org/docs/handbook/release-notes/typescript-2-8.html
+
+\begin{exercise}
+Ricavare le chiavi di \texttt{X} che hanno valori di tipo \texttt{string}
+
+\begin{code}
+interface X {
+  a: string
+  b: number
+  c: string
+}
+\end{code}
+\end{exercise}
+
+\begin{exercise}
+Tipizzare la funzione \texttt{remove}
+\end{exercise}
+
+\begin{exercise}
+Manipolazione di unioni taggate: estrarre o escludere dei membri
+\end{exercise}
+
+\begin{exercise}
+Tipizzare la funzione \texttt{omit}
+\end{exercise}
+
+\newpage
+\section{Definition file}
+
+Un \emph{definition file} contiene solo dichiarazioni di tipi e servono a descrivere le API pubbliche di una package.
+
+Tipicamente il nome di un definition file termina con \texttt{.d.ts}.
+
+\subsection{Il flag \texttt{declaration}}
+
+È possibile far generare a TypeScript i definition file dei moduli scritti in TypeScript impostando nel \texttt{tsconfig.json}
+il flag \texttt{declaration: true}.
+
+\subsection{Un problema serio: le API JavaScript}
+
+Le API delle librerie JavaScript sono pensate per essere ergonomiche e consumate da JavaScript,
+aggiungere un definition file a posteriori è spesso problematico.
+
+In più spesso i definition file ufficiali non sono del tutto soddisfacenti.
+
+Possibili soluzioni
+
+\begin{itemize}
+\item cambiare libreria
+\item definire un custom definition file
+\item definire una funzione wrapper con una tipizzazione sana
+\item module augmentation / declaration merging
+\end{itemize}
+
+\begin{example}
+Correggere lodash (49.000.000 di download / mese)
+
+\begin{code}
+// lodash@4.17.10
+// @types/lodash@4.14.109
+import * as _ from "lodash"
+
+const f = (a: number, b: string): number =>
+  a + b.trim().length
+
+/*
+
+  La funzione `flip` è definita con questa tipizzazione
+
+  flip<T extends (...args: any[]) => any>(func: T): T;
+
+*/
+const g = _.flip(f)
+
+g(1, "a") // esplode a runtime: b.trim is not a function
+\end{code}
+
+Una possibile soluzione: module augmentation / declaration merging
+
+\begin{code}
+declare module "lodash" {
+  interface LoDashStatic {
+    flip<A, B, C>(f: (a: A, b: B) => C): (b: B, a: A) => C
+    flip<A, B>(f: (a: A) => B): (a: A) => B
+    flip<A>(f: () => A): () => A
+  }
+}
+\end{code}
+
+\end{example}
+
+\begin{exercise}
+Correggere la funzione \texttt{\_.get}
+\end{exercise}
+
+\newpage
+\section{TDD (Type Driven Development)}
+
+\begin{quote}
+"Type driven development" is a technique used to split a problem into a set of smaller problems,
+letting the type checker suggest the concrete implementation, or at least helping us getting there.
+\end{quote}
+
+\begin{example}
+Reimplementare \texttt{Promise.all}.
+
+\begin{code}
+declare function sequence<T>(
+  promises: Array<Promise<T>>
+): Promise<Array<T>>
+\end{code}
+
+\end{example}
+
+\begin{boxed}
+live coding...
+\end{boxed}
+
+\newpage
+\section{ADT (Algebraic Data Types)}
+
+Un \emph{Algebraic Data Type} (o ADT) è un tipo composto da product e/o sum types, anche innestati.
+
+\subsection{Product types}
+
+\begin{definition}
+Un product type è una collezione di tipi $A_i$ indicizzati da un insieme $I$.
+\end{definition}
+
+Un product type è isomorfo\footnote{Due insiemi $A$ e $B$ sono isomorfi se esiste una funzione $f: A \rightarrow B$ iniettiva e suriettiva,
+ovvero se esiste una funzione $f^{-1}: B \rightarrow A$, detta \emph{funzione inversa} di $f$, tale che $f \circ f^{-1} = identity$}
+al prodotto cartesiano $\prod_i A_i$.
+
+Esponenti notevoli di questa famiglia sono le $n$-tuple, ove $I$ è un intervallo non vuoto dei numeri naturali
+\footnote{$\{0\}$ per \texttt{Tuple1}, $\{0, 1\}$ per \texttt{Tuple2}, $\{0, 1, 2\}$ per \texttt{Tuple2}}
+
+\begin{example}
+Tuple come product type
+
+\begin{code}
+type Tuple1 = [string]
+type Tuple2 = [string, number]
+type Tuple3 = [string, number, boolean]
+\end{code}
+\end{example}
+
+e i record, ove $I$ è una collezione di label
+\footnote{$\{ "name", "age" \}$ per \texttt{Person}}
+
+\begin{example}
+Record come product type
+
+\begin{code}
+type Person = {
+  name: string,
+  age: number
+}
+\end{code}
+\end{example}
+
+\texttt{Tuple2} e \texttt{Person} sono isomorfi tra loro
+
+$$
+f: \texttt{Tuple2} \rightarrow \texttt{Person}
+$$
+
+$$
+f(\texttt{[name, age]}) = \texttt{\{ name, age  \}}
+$$
+
+$$
+f^{-1}: \texttt{Person} \rightarrow \texttt{Tuple2}
+$$
+
+$$
+f^{-1}(\texttt{\{ name, age  \}}) = \texttt{[name, age]}
+$$
+
+L'isomorfismo, almeno in una direzione, risulta evidente se si implementa \texttt{Person} con una classe
+
+\begin{code}
+class Person {
+  constructor(readonly name: string, readonly age: number) {}
+}
+\end{code}
+
+in cui \texttt{constructor} realizza la funzione $f$.
+
+Si può reificare l'isomorfismo costruendo una istanza di \texttt{Iso}
+
+\begin{example}
+Isomorfismo come valore
+
+\begin{code}
+const iso = new Iso<[string, number], Person>(
+  ([name, age]) => ({ name, age }),
+  ({ name, age }) => [name, age]
+)
+\end{code}
+\end{example}
+
+\paragraph{Perchè si chiamano product types?}
+
+Se indichiamo con $\|A\|$, detta \emph{cardinalità} o \emph{ordine} di $A$, il numero di elementi
+dell'insieme $A$ è facile convincersi che vale la seguente formula
+
+$$
+\|A \times B\| = \|A\| * \|B\|
+$$
+
+ovvero la cardinalità del prodotto cartesiano è il prodotto delle cadinalità.
+
+\begin{example}
+Calcolare il numero di abitanti di un product type
+
+\begin{code}
+type Hour = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12
+type Period = "AM" | "PM"
+type Clock = [Hour, Period]
+\end{code}
+
+Il tipo \texttt{Clock} ha $12 * 2 = 24$ abitanti.
+\end{example}
+
+\subsection{Sum types}
+
+Così come i product types sono analoghi ai prodotti cartesiani di insiemi, i sum types sono analoghi alle unioni di insiemi disgiunti
+
+\begin{code}
+type Action =
+  | { type: "INCREMENT" }
+  | { type: "DECREMENT" }
+\end{code}
+
+Product types e sum types possono essere mischiati e innestati
+
+\begin{example}
+Sum type e product type insieme
+
+\begin{code}
+export type Action =
+  | { type: "ADD_TODO"; text: string }
+  | {
+      type: "UPDATE_TODO"
+      id: number
+      text: string
+      completed: boolean
+    }
+  | { type: "DELETE_TODO"; id: number }
+\end{code}
+\end{example}
+
+Il tipo \texttt{Array<A>}, con una buona misura di fantasia, può essere interpretato come sum type
+
+\begin{code}
+type Array<A> = [] | [A] | [A, A] | [A, A, A] | ...
+\end{code}
+
+I sum type possono essere ricorsivi
+
+\begin{example}
+Linked lists
+
+\begin{code}
+type List<A> =
+  | { type: "Nil" }
+  | { type: "Cons", head: A, tail: List<A> }
+\end{code}
+\end{example}
+
+\begin{example}
+Binary trees
+
+\begin{code}
+type BinaryTree<A> =
+  | { type: "Leaf" }
+  | {
+      type: "Node"
+      left: BinaryTree<A>
+      value: A
+      right: BinaryTree<A>
+    }
+\end{code}
+\end{example}
+
+\paragraph{Perchè si chiamano sum types?}
+
+È facile convincersi che la cadinalità di un sum type è la somma delle cardinalità dei suoi membri
+
+$$
+\|A | B\| = \|A\| + \|B\|
+$$
+
+\begin{example}
+Calcolare il numero di abitanti di un sum type
+
+\begin{code}
+type Option<A> = { type: "None" } | { type: "Some"; value: A }
+\end{code}
+
+Il tipo \texttt{Option<boolean>} ha $1 + 2 = 3$ abitanti.
+\end{example}
+
+I sum type sono particolarmente utili per modellare record con campi dipendenti tra loro.
+
+\begin{exercise}
+Definire il tipo \texttt{JSON}
+\end{exercise}
+
+\subsection{Exaustivity checking}
+
+Nel caso dei sum type TypeScript offre un servizio prezioso: controlla che ogni caso del sum type sia stato gestito.
+
+Se nella funzione \texttt{reducer} qui sotto non vengono gestiti tutti i casi contenuti in \texttt{Action} il compilatore ci avverte, così come
+ci avverte se il tipo \texttt{Action} viene cambiato, per esempio aggiungendo o togliendo un caso.
+
+\begin{example}
+Exaustivity checking in azione
+
+\begin{code}
+type Action =
+  | { type: "ADD_TODO"; text: string }
+  | {
+      type: "UPDATE_TODO"
+      id: number
+      text: string
+      completed: boolean
+    }
+  | { type: "DELETE_TODO"; id: number }
+
+interface Todo {
+  id: number
+  text: string
+  completed: boolean
+}
+
+interface State {
+  todos: Array<Todo>
+}
+
+declare const getNextId: (s: State) => number
+
+const reducer = (s: State, a: Action): State => {
+  switch (a.type) {
+    case "ADD_TODO":
+      return {
+        todos: [
+          ...s.todos,
+          { id: getNextId(s), text: a.text, completed: false }
+        ]
+      }
+    case "UPDATE_TODO":
+      return {
+        todos: s.todos.map(todo =>
+          (todo.id === a.id ? a : todo))
+      }
+    case "DELETE_TODO":
+      return {
+        todos: s.todos.filter(({ id }) => id !== a.id)
+      }
+  }
+}
+\end{code}
+\end{example}
+
+\begin{boxed}
+Cercate di non usare \texttt{default} in uno \texttt{switch} relativo ad sum type, altrimenti depotenziate l'exaustivity checking
+\end{boxed}
+
+\begin{exercise}
+Supponiamo di dover modellare la seguente struttura dati (chiamiamola \texttt{Selection})
+
+\begin{quote}
+una lista di utenti di cui uno è considerato la selezione corrente
+\end{quote}
+
+Un vostro collega propone questo modello
+
+\begin{code}
+interface User {
+  name: string
+}
+
+interface Selection {
+  items: Array<User> // la lista degli utenti
+  current?: number   // l'indice della selezione corrente
+                     // può essere undefined
+}
+\end{code}
+
+Avete una proposta migliore?
+\end{exercise}
+
+\newpage
+\section{Error handling funzionale}
+
+Consideriamo la funzione
+
+\begin{code}
+const inverse = (x: number): number => 1 / x
+\end{code}
+
+Tale funzione si dice \emph{parziale} perchè non è definita per tutti i valri del dominio ($x = 0$).
+Come possiamo gestire questa situazione?
+
+Una soluzione potrebbe essere lanciare un'eccezione
+
+\begin{code}
+const inverse = (x: number): number => {
+  if (x !== 0) return 1 / x
+  throw new Error('cannot divide by zero')
+}
+\end{code}
+
+ma così la funzione non sarebbe più da considerarsi pura
+\footnote{Le eccezioni sono considerate un side effect inaccettabile perchè modificano la normale esecuzione del codice
+e violano la trasparenza referenziale}.
+
+Un'altra possibile soluzione è restituire \texttt{null}
+
+\begin{code}
+const inverse = (x: number): number | null => {
+  if (x !== 0) return 1 / x
+  return null
+}
+\end{code}
+
+Sorge però un nuovo problema quando si cerca di comporre la funzione \texttt{inverse} così modificata con un'altra funzione
+
+\begin{code}
+const double = (n: number): number => n * 2
+
+// calcola l'inverso e poi moltiplica per 2
+const doubleInverse = (x: number): number => double(inverse(x))
+\end{code}
+
+L'implementazione di \texttt{doubleInverse} non è corretta, cosa succede se \texttt{inverse(x)} restituisce \texttt{null}?
+Occorre tenerne conto
+
+\begin{code}
+const doubleInverse = (x: number): number | null => {
+  const y = inverse(x)
+  if (y === null) return null
+  return double(y)
+}
+\end{code}
+
+Appare evidente come l'obbligo di gestione del valore speciale \texttt{null} si propaghi in modo contagioso
+a tutti gli utilizzatori di \texttt{inverse}.
+
+Questo approccio ha alcuni svantaggi
+
+\begin{itemize}
+  \item molto boilerplate
+  \item le funzioni non compongono facilmente
+\end{itemize}
+
+\subsection{Il tipo \texttt{Option}}
+
+La soluzione funzionale ai problemi illustrati precedentemente è l'utilizzo del tipo \texttt{Option},
+eccone la definizione
+
+\begin{code}
+type Option<A> = None<A> | Some<A>
+
+class None<A> {
+  // sum type, si noti la type annotation esplicita
+  // altrimenti nel definition file avremmo
+  // readonly type: string;
+  readonly type: "None" = "None"
+  map<B>(f: (a: A) => B): Option<B> {
+    return new None()
+  }
+  chain<B>(f: (a: A) => Option<B>): Option<B> {
+    return this as any
+  }
+}
+
+class Some<A> {
+  readonly type: "Some" = "Some"
+  constructor(readonly value: A) {}
+  map<B>(f: (a: A) => B): Option<B> {
+    return new Some(f(this.value))
+  }
+  chain<B>(f: (a: A) => Option<B>): Option<B> {
+    return f(this.value)
+  }
+}
+
+const none: Option<never> = new None()
+
+const some = <A>(a: A): Option<A> => new Some(a)
+\end{code}
+
+Ridefiniamo \texttt{inverse} sfruttando \texttt{Option}
+
+\begin{code}
+const inverse = (x: number): Option<number> =>
+  x === 0 ? none : some(1 / x)
+\end{code}
+
+Possiamo interpretare questa modifica in termini di successo e fallimento: se viene restituita una istanza di \texttt{Some}
+la computazione di \texttt{inverse} ha avuto successo, se viene restituita una istanza di \texttt{None} essa è fallita.
+
+\begin{boxed}
+Il tipo \texttt{Option} codifica l'\emph{effetto} di una computazione che può fallire
+\end{boxed}
+
+Ora è possibile definire \texttt{doubleInverse} senza boilerplate
+
+\begin{code}
+const doubleInverse = (x: number): Option<number> =>
+  inverse(x).map(double)
+
+doubleInverse(2) // Some(1)
+doubleInverse(0) // None
+\end{code}
+
+Inoltre è facile concatenare altre operazioni
+
+\begin{code}
+const inc = (x: number): number => x + 1
+
+inverse(0)
+  .map(double)
+  .map(inc) // None
+inverse(4)
+  .map(double)
+  .map(inc) // Some(1.5)
+\end{code}
+
+\begin{boxed}
+\texttt{Option} mi permette di concentrarmi solo sul \emph{path di successo} in una serie di computazioni che possono fallire
+\end{boxed}
+
+Inoltre è possibile concatenare varie operazioni che possono fallire tramite il metodo \texttt{chain}
+
+\begin{code}
+const head = <A>(as: Array<A>): Option<A> => {
+  return as.length > 0 ? some(as[0]) : none
+}
+
+head([]).chain(inverse) // None
+head([1, 2, 3]).chain(inverse) // Some(0.5)
+\end{code}
+
+\subsection{Branching tramite la funzione \texttt{fold}}
+
+Prima o poi dovrò affrontare il problema di stabilire cosa fare sia nel caso di successo che di fallimento.
+La funzione \texttt{fold} permette di gestire i due casi
+
+\begin{code}
+class Some<A> {
+  ...
+  fold<R>(whenNone: () => R, whenSome: (a: A) => R): R {
+    return whenSome(this.value)
+  }
+}
+
+class None<A> {
+  ...
+  fold<R>(whenSome: () => R, whenNone: (a: A) => R): R {
+    return whenSome()
+  }
+}
+
+const whenNone = (): string => "cannot divide by zero"
+const whenSome = (x: number): string => "the result is" + x
+
+inverse(2).fold(whenNone, whenSome) // "the result is 0.5"
+inverse(0).fold(whenNone, whenSome) // "cannot divide by zero"
+\end{code}
+
+Si noti come il branching è racchiuso nella definizione di \texttt{Option} e non necessita di alcun \texttt{if}
+e che l'utilizzo necessita solo di funzioni.
+
+Inoltre le funzioni \texttt{f} e \texttt{g} sono generiche e riutilizzabili.
+
+\subsection{Interoperabilità}
+
+Per questioni di interoperabilità con codice che non usa \texttt{Option} possiamo definire alcune funzioni di utility
+
+\begin{code}
+const fromNullable = <A>(
+  a: A | null | undefined
+): Option<A> => a == null ? none : some(a)
+
+const toNullable = <A>(fa: Option<A>): A | null =>
+  fa.fold(() => null, a => a)
+\end{code}
+
+\subsection{Il tipo \texttt{Either}}
+
+Il tipo \texttt{Option} è utile quando c'è un solo modo evidente per il quale una computazione può fallire,
+oppure ce ne sono diversi ma non interessa distinguerli.
+
+Se invece esistono molteplici ragioni di fallimento ed interessa comunicare al chiamante quale si sia verificata,
+oppure se si vuole definire un errore personalizzato, è possibile impiegare il tipo \texttt{Either}. Eccone la definizione
+
+\begin{code}
+type Either<L, A> = Left<L, A> | Right<L, A>
+
+class Left<L, A> {
+  readonly type: "Left" = "Left"
+  constructor(readonly value: L) {}
+  map<B>(f: (a: A) => B): Either<L, B> {
+    return new Left(this.value)
+  }
+  chain<B>(f: (a: A) => Either<L, B>): Either<L, B> {
+    return this as any
+  }
+}
+
+class Right<L, A> {
+  readonly type: "Right" = "Right"
+  constructor(readonly value: A) {}
+  map<B>(f: (a: A) => B): Either<L, B> {
+    return new Right(f(this.value))
+  }
+  chain<B>(f: (a: A) => Either<L, B>): Either<L, B> {
+    return f(this.value)
+  }
+}
+
+const left = <L, A>(l: L): Either<L, A> =>
+  new Left(l)
+
+const right = <L, A>(a: A): Either<L, A> =>
+  new Right(a)
+\end{code}
+
+Per convenzione \texttt{Left} rappresenta il caso di fallimento mentre \texttt{Right} quello di successo.
+
+Ridefiniamo la funzione \texttt{inverse} in funzione del tipo \texttt{Either}
+
+\begin{code}
+const inverse = (x: number): Either<string, number> =>
+  x === 0 ? left('cannot divide by zero') : right(1 / x)
+\end{code}
+
+Ancora una volta è possibile definire \texttt{doubleInverse} senza boilerplate
+
+\begin{code}
+const doubleInverse = (x: number): Either<string, number> =>
+  inverse(x).map(double)
+
+doubleInverse(2) // Right(1)
+doubleInverse(0) // Left('cannot divide by zero')
+\end{code}
+
+ed è facile comporre insieme altre operazioni
+
+\begin{code}
+inverse(0)
+  .map(double)
+  .map(inc) // Left('cannot divide by zero')
+inverse(4)
+  .map(double)
+  .map(inc) // Right(1.5)
+\end{code}
+
+Anche per il tipo \texttt{Either} è possibile definire una funzione \texttt{fold}
+
+\begin{code}
+class Left<L, A> {
+  ...
+  fold<R>(
+    whenLeft: (l: L) => R,
+    whenRight: (a: A) => R
+  ): R {
+    return whenLeft(this.value)
+  }
+}
+
+class Right<L, A> {
+  ...
+  fold<R>(
+    whenLeft: (l: L) => R,
+    whenRight: (a: A) => R
+  ): R {
+    return whenRight(this.value)
+  }
+}
+\end{code}
+
+\begin{example}
+Tipizzare le callback nelle API di node.js
+
+Un esempio tipico di una API in node.js è \texttt{readFile}
+
+\begin{code}
+declare function readFile(
+  path: string,
+  callback: (err: Error | undefined, data?: string) => void
+): void
+\end{code}
+
+Il problema di questa tipizzazione è che può rappresentare anche situazioni che dovrebbero essere escluse, in particolare
+quella in cui sia \texttt{err} che \texttt{data} sono presenti.
+
+Una migliore tipizzazione può essere realizzata sfruttando il tipo \texttt{Either}
+
+\begin{code}
+import { Either } from "./Either"
+
+declare function betterReadFile(
+  path: string,
+  callback: (result: Either<Error, string>) => void
+): void
+\end{code}
+\end{example}
+
+\begin{example}
+Tipizzare le \texttt{Promise}
+
+La tipizzazione standard delle \texttt{Promise} non prevede un tipo per gli errori.
+
+\begin{code}
+declare function readFile(path: string): Promise<string>
+\end{code}
+
+Anche in questo caso una migliore tipizzazione può essere realizzata sfruttando il tipo \texttt{Either}.
+
+\begin{code}
+import { Either, right, left } from './Either'
+
+declare function betterReadFile(
+  path: string
+): Promise<Either<Error, string>>
+
+export const attempt = <L, A>(
+  promise: Promise<A>,
+  onrejected: (reason: {}) => L
+): Promise<Either<L, A>> => {
+  return promise.then(
+    a => right<L, A>(a),
+    reason => left<L, A>(onrejected(reason))
+  )
+}
+\end{code}
+\end{example}
+
+\newpage
+\section{Make impossible states irrepresentable}
+
+Vediamo un'altra tecnica per ottenere type safety, questa volta addirittura per costruzione.
+
+Sappiamo che la funzione \texttt{head} è parziale
+
+\begin{code}
+const head = <A>(xs: Array<A>): A => xs[0]
+\end{code}
+
+e che per renderla totale occorre modificare il codominio
+
+\begin{code}
+const head = <A>(xs: Array<A>): Option<A> =>
+  xs.length > 0 ? some(xs[0]) : none
+\end{code}
+
+Tuttavia questo ci obbliga ad usare \texttt{Option}.
+
+Un'altra opzione è quella di cambiare il dominio invece che estendere il codominio
+
+\subsection{Il tipo \texttt{NonEmptyArray}}
+
+\begin{code}
+class NonEmptyArray<A> {
+  constructor(readonly head: A, readonly tail: Array<A>) {}
+}
+
+const head = <A>(fa: NonEmptyArray<A>): A => fa.head
+\end{code}
+
+\subsection{Il tipo \texttt{Zipper}}
+
+Supponiamo di dover modellare la seguente struttura dati
+
+\begin{quote}
+una lista non vuota di elementi di cui uno è considerato la selezione corrente
+\end{quote}
+
+Un modello semplice potrebbe essere questo
+
+\begin{code}
+type Selection<A> = {
+  items: Array<A>
+  current: number
+}
+\end{code}
+
+Tuttavia questo modello ha diversi difetti
+
+\begin{itemize}
+  \item la lista può essere vuota
+  \item l'indice può essere out of range
+\end{itemize}
+
+Possiamo migliorare il modello usando \texttt{NonEmptyArray}
+
+\begin{code}
+type Selection<A> = {
+  items: NonEmptyArray<A>
+  current: number
+}
+\end{code}
+
+Tuttavia l'indice può essere ancora out of range.
+
+Uno \texttt{Zipper} invece è un modello perfetto e type safe per il problema
+
+\begin{code}
+type Zipper<A> = {
+  prev: Array<A>
+  current: A
+  next: Array<A>
+}
+\end{code}
+
+\newpage
+\subsection{Slaying a UI Antipattern with TypeScript}
+
+\paragraph{The problem.}
+
+This problem is presented in "Slaying a UI Antipattern in Fantasyland"\footnote{https://medium.com/javascript-inside/slaying-a-ui-antipattern-in-fantasyland-907cbc322d2a}
+by Stefan Oestreicher which in turn is based on "How Elm Slays a UI Antipattern"\footnote{http://blog.jenkster.com/2016/06/how-elm-slays-a-ui-antipattern.html}
+by Kris Jenkins.
+
+The problem they present is a very common one. You are loading a list of things but instead of showing a loading indicator
+you just see zero items. In JavaScript your data model may look like this
+
+\begin{code}
+{ loading: true, items: [] }
+\end{code}
+
+But of course it's easy to forget to check the loading flag. What about using \texttt{null} in order to represent the "not loaded" case?
+Both Stefan and Kris wisely discourage it
+
+\begin{quote}
+Long experience will have taught you that setting a property to null may be correct, but it's just asking for runtime exceptions
+\end{quote}
+
+Fortunately, this concern evaporates when using TypeScript
+
+\begin{code}
+type Model = {
+  things: Array<Thing> | undefined | null
+}
+\end{code}
+
+Now if you try to use an instance of this model incorrectly
+
+\begin{code}
+const SomeView = ({ things }: Model) => {
+  return <div>
+    { things.map(thing => String(thing)) }
+  </div>
+}
+\end{code}
+
+TypeScript will complain
+
+\begin{code}
+[ts] Object is possibly 'null' or 'undefined'.
+\end{code}
+
+However we can go even further, as Kris says "we can be much more sophisticated".
+
+\paragraph{The solution.}
+
+HTTP requests have one of four states
+
+\begin{itemize}
+  \item we haven't asked yet
+  \item w've asked, but we haven't got a response yet
+  \item we got a response, but it was an error
+  \item we got a response, and it was the data we wanted
+\end{itemize}
+
+With TypeScript we can easily define a type that represents these four states
+
+\begin{code}
+type RemoteData<E, D> =
+  | { type: "NotAsked" }
+  | { type: "Loading" }
+  | { type: "Failur"; error: E }
+  | { type: "Success"; data: D }
+
+type Model = {
+  things: RemoteData<HttpError, Array<Thing>>
+}
+\end{code}
+
+As Kris observes
+
+\begin{quote}
+The nice thing about this data model is, the type checker will now force you to write the correct UI code.
+It will keep track of the possibility of “things not loaded” and errors, and force you to handle them all in the UI.
+\end{quote}
+
+\begin{code}
+// will raise: Property 'data' does not exist
+// on type 'RemoteData<string, Thing[]>'
+const SomeView = ({ things }: Model) => {
+  return <div>{things.data.map(thing => {})}</div>
+}
+\end{code}
+
+TypeScript will force you to handle all cases
+
+\begin{code}
+const SomeView = ({ things }: Model) => {
+  switch (things.type) {
+    case "NotAsked":
+      return (
+        <div>Please press the button to load the things</div>
+      )
+    case "Loading":
+      return <div>Loading things...</div>
+    case "Failure":
+      return <div>An error has occurred {things.error}</div>
+    case "Success":
+      return <div>{things.data.map(thing => { ... })}</div>
+  }
+}
+\end{code}
+
+Or, using a more functional style, let's define a \texttt{fold} function that can be re-utilised in more use cases
+
+\begin{code}
+function fold<E, D, R>(
+  rd: RemoteData<E, D>,
+  fs: {
+    NotAsked: () => R
+    Loading: () => R
+    Failure: (error: E) => R
+    Success: (data: D) => R
+  }
+): R {
+  switch (rd.type) {
+    case "NotAsked":
+      return fs.NotAsked()
+    case "Loading":
+      return fs.Loading()
+    case "Failure":
+      return fs.Failure(rd.error)
+    case "Success":
+      return fs.Success(rd.data)
+  }
+}
+\end{code}
+
+Now \texttt{SomeView} can be defined as
+
+\begin{code}
+const SomeView = ({ things }: Model) =>
+  fold(
+    things,
+    {
+      NotAsked: () => (
+        <div>Please press the button to load the things</div>
+      ),
+      Loading: () => <div>Loading things...</div>,
+      Failure: error => <div>An error has occurred {error}</div>,
+      Success: data => <div>{data.map(thing => {})}</div>
+    }
+  )
+\end{code}
+
+\subsection{Finite state machines}
+
+\begin{quote}
+First, we should have a clear understanding of what a finite-state machine is. There are many variations and definitions,
+and I’m sure you, especially if coming from an engineering background, have some relation to state machines.
+
+In general, a finite-state machine can be described as an abstract machine with a finite set of states,
+being is in one state at a time. Events trigger state transitions; that is, the machine changes from being in one
+state to being in another state. The machine defines a set of legal transitions, often expressed as associations
+from the current state and an event to another state.\footnote{https://wickstrom.tech/finite-state-machines/2017/11/10/finite-state-machines-part-1-modeling-with-haskell.html}
+\end{quote}
+
+Gli stati e gli eventi possono essere modellati con dei sum type, rispettivamente \texttt{S} e \texttt{E}.
+
+Il modello di una finite state machine è allora
+
+\begin{code}
+type PureFSM<S, E> = (s: S, e: E) => S
+\end{code}
+
+Siccome però è probabile che per produrre il nuovo stato occorra generare dei side effect, un modello più realistico è il seguente
+
+\begin{code}
+type FSM<S, E> = (s: S, e: E) => Promise<S>
+\end{code}
+
+\begin{exercise}
+Modellare il seguente grafo (shopping cart checkout) usando degli ADT sia per gli stati sia per gli eventi
+
+\[
+\xymatrixrowsep{3cm}
+\xymatrixcolsep{3cm}
+\xymatrix{
+  NoItems \ar[r]^{\texttt{select}} & HasItems \ar@(ul,ur)^{\texttt{select}} \ar@/_0.5cm/[r]_{\texttt{checkout}} & NoCard \ar[d]_{\texttt{selectCard}} \ar@/_0.5cm/[l]_{\texttt{cancel}} \\
+  OrderPlaced & CardConfirmed \ar[u]^{\texttt{cancel}} \ar[l]^{\texttt{placeOrder}} & CardSelected \ar[ul]^{\texttt{cancel}} \ar[l]^{\texttt{confirm}} \\
+}
+\]
+\end{exercise}
+
+\newpage
+\section{Come migliorare la type inference delle funzioni polimorfiche}
+
+Consideriamo la generica definizione di funzione
+
+$$
+\texttt{const f} = \underbrace{(a_1, \ldots, a_n)}_A \texttt{ => } \underbrace{(b_{n + 1}, \ldots, b_m)}_B \texttt{ => } \ldots \texttt{ => } \texttt{ \{ } \ldots \texttt{ \} }
+$$
+
+Chiamiamo $A$, $B$, \ldots col nome di \emph{gruppi di argomenti} della funzione \texttt{f}.
+
+Quando la funzione definita è polimorfica, ogni gruppo di argomenti è sede di inferenza per TypeScript.
+
+\begin{example}
+La seguente funzione ha un solo gruppo di argomenti e TypeScript è in grado di inferire correttamente tutti i type parameter coinvolti
+
+\begin{code}
+const map = <A, B>(
+  f: (a: A) => B,
+  fa: Array<A>
+): Array<B> => fa.map(f)
+
+// map: <string, number>
+map(s => s.length, ['foo'])
+\end{code}
+
+se consideriamo la versione curried di \texttt{map} le cose cambiano
+
+\begin{code}
+const mapCurried = <A, B>(f: (a: A) => B) => (
+  fa: Array<A>
+): Array<B> => fa.map(f)
+
+// mapCurried: <{}, any>
+mapCurried(s => s.length)(['foo'])
+// error: Property 'length' does not exist on type '{}'
+\end{code}
+
+TypeScript non è in grado di inferire il type parameter \texttt{A} nel primo gruppo di argomenti e gli assegna il tipo \texttt{\{\}}.
+Lo sviluppatore perciò deve correggere la situazione aggiungendo una type annotation alla callback
+
+\begin{code}
+// mapCurried: mapCurried: <string, number>(f:
+// (a: string) => number) => (fa: string[]) => number[]
+mapCurried((s: string) => s.length)(['foo'])
+\end{code}
+
+oppure specificando i type parameter
+
+\begin{code}
+mapCurried<string, number>(s => s.length)(['foo'])
+\end{code}
+
+È però possibile migliorare la type inference scambiando l'ordine dei gruppi di argomenti
+
+\begin{code}
+const mapCurriedFlipped = <A>(fa: Array<A>) => <B>(
+  f: (a: A) => B
+): Array<B> => fa.map(f)
+
+// mapCurriedFlipped: <string>(fa: string[]) =>
+// <B>(f: (a: string) => B) => B[]
+mapCurriedFlipped(['foo'])(s => s.length)
+\end{code}
+\end{example}
+
+\newpage
+\section{Simulazione dei tipi nominali}
+
+È possibile simulare i tipi nominali aggiungendo una proprietà fittizia (detta \emph{phantom property}) che non viene mai valorizzata
+a runtime ma che viene comunque presa in considerazione dal compilatore.
+
+\begin{example}
+Implementazione con le classi
+
+\begin{code}
+class A {
+  readonly type!: "A"
+}
+
+class B {
+  readonly type!: "B"
+}
+
+declare function f(a: A): void
+
+f(new A())
+f(new B())
+/*
+[ts]
+Argument of type 'B' is not assignable to parameter of type 'A'.
+  Types of property '_tag' are incompatible.
+    Type '"B"' is not assignable to type '"A"'.
+*/
+\end{code}
+\end{example}
+
+Si noti l'uso del \emph{definite property assignment assertion operator}.
+
+\newpage
+\section{Refinements e smart constructors}
+
+Consideriamo la funzione \texttt{inverse}
+
+\begin{code}
+const inverse = (x: number): Option<number> =>
+  x === 0 ? none : some(1 / x)
+\end{code}
+
+Un altro modo per ottenere lo stesso grado di type safety senza avere una funzione parziale è l'utilizzo degli \emph{smart constructors}.
+
+In pratica si fa in modo che \texttt{Option} non compaia a valle, nel codominio di \texttt{inverse},
+ma a monte, in fase di creazione dell'input \texttt{x}.
+
+Supponiamo di volere rappresentare il tipo "numero diverso da zero", possiamo implementarlo con un wrapper nominale
+
+\begin{code}
+class NonZero {
+  readonly type: "NonZero" = "NonZero"
+  constructor(readonly value: number) {}
+}
+\end{code}
+
+Il problema è che non ho controllo sulla creazione
+
+\begin{code}
+const x = new NonZero(0)
+\end{code}
+
+Posso allora definire uno \emph{smart constructor}, ovvero una funzione che ha come codominio \texttt{Option<NonZero>} e che
+effettua il controllo a runtime
+
+\begin{code}
+export const create = (n: number): Option<NonZero> =>
+  n === 0 ? none : some(new NonZero(n))
+\end{code}
+
+Nella pratica uno smart constructor rappresenta un controllo a runtime a livello dei tipi.
+
+Si noti che \texttt{NonZero} non è esportato mentre dal modulo è esportata la sola funzione \texttt{create}, in questo
+modo si mantiene il controllo totale sulla creazione di istanze di \texttt{NonZero} che non sempre valide.
+
+Tuttavia ci può essere una complicazione se \texttt{declaration = true} nel \texttt{tsconfig.json}
+(caso che può capitare se per esempio se si sta scrivendo una libreria). In questo caso
+TypeScript costringe ad esportare anche il tipo \texttt{NonZero}, ma con esso \textbf{anche il costruttore}.
+
+Si può rimediare con il seguente workaround
+
+\begin{itemize}
+\item rendere privato il costruttore di \texttt{NonZero}
+\item spostare la definizione di \texttt{creare} come funzione statica di \texttt{NonZero}
+\end{itemize}
+
+\begin{code}
+class NonZero {
+  readonly type: "NonZero" = "NonZero"
+  static create(n: number): Option<NonZero> {
+    return n === 0 ? none : some(new NonZero(n))
+  }
+  private constructor(readonly value: number) {}
+}
+
+// inverse adesso è totale!
+const inverse = (x: NonZero): number => 1 / x.value
+\end{code}
+
+In questo modo spesso si spingono i controlli a runtime là dove dovrebbe essere il loro posto naturale: ai confini del sistema,
+dove vengono fatte tutte le validazioni dell'input.
+
+\newpage
+\section{Phantom types}
+
+A \emph{phantom type} is a parametrised type whose parameters do not all appear on the right-hand side of its definition, e.g
+
+\begin{code}
+type Phantom<M> = { value: number }
+\end{code}
+
+Here \texttt{Phantom} is a phantom type and \texttt{M} is a \emph{phantom type parameter},
+because the \texttt{M} parameter doesn't appear in its implementation.
+
+Since TypeScript is a structural type system we must choose a different encoding
+
+\begin{exercise}
+Perchè?
+\end{exercise}
+
+e.g. using a \texttt{class} and a phantom property
+
+\begin{code}
+class Phantom<M> {
+  readonly M!: M
+  constructor(readonly value: number) {}
+}
+\end{code}
+
+\subsection{Validating user input}
+
+Say you have a
+
+\begin{code}
+declare function use(input: string): void
+\end{code}
+
+function (the return type doesn't really matter for our example),
+perhaps it saves the input to a database, or calls an internal API.
+
+Now you want to enforce that, before being called, the input has been validated.
+
+And maybe you also don't want to waste CPU cycles (let's assume the process of validating is expensive)
+so you want to ensure that the validation happens only once, what would you do?
+
+Let's start with a few definitions
+
+\begin{code}
+class Data<M> {
+  readonly M!: M
+  constructor(readonly input: string) {}
+}
+\end{code}
+
+The \texttt{Data} class looks strange since at first it seems the type parameter is unused and could be anything,
+without affecting the value inside. Indeed, one can write
+
+\begin{code}
+const changeType = <A, B>(data: Data<A>): Data<B> =>
+  new Data(data.input)
+\end{code}
+
+to change it from any type to any other.
+
+However, if the constructor is not exported then users of the library that defined \texttt{Data} can't define functions like the above,
+so the type parameter can only be set or changed by library functions.
+
+So we might do
+
+\begin{code}
+export type Unvalidated = "Unvalidated"
+export type Validated = "Validated"
+export type State = Unvalidated | Validated
+
+declare function myvalidation(s: string): boolean
+
+export class Data<M extends State> {
+  readonly M!: M
+  private constructor(readonly input: string) {}
+
+  /**
+   * since we don't export the constructor itself,
+   * users with a string can only create Unvalidated values
+   */
+  static make(input: string): Data<Unvalidated> {
+    return new Data(input)
+  }
+
+  /**
+   * returns none if the data doesn't validate
+   */
+  static validate(
+    data: Data<Unvalidated>
+  ): Option<Data<Validated>> {
+    return myvalidation(data.input)
+      ? some(data as any)
+      : none
+  }
+}
+
+/**
+ * can only be fed the result of a call to validate!
+ */
+export function use(data: Data<Validated>): void {
+  console.log("using " +  data.input)
+}
+\end{code}
+
+Now let's try to use the library incorrectly
+
+\begin{code}
+import { Data, use } from './data'
+
+const data = Data.make('hello')
+
+use(data) // called without validating the input
+\end{code}
+
+If you run TypeScript you get the following error
+
+\begin{code}
+[ts]
+Argument of type 'Data<"Unvalidated">' is not assignable
+  to parameter of type 'Data<"Validated">'.
+  Type '"Unvalidated"' is not assignable to type '"Validated"'.
+\end{code}
+
+If you call \texttt{validate} instead
+
+\begin{code}
+const data = Data.make('hello')
+Data.validate(data).map(use)
+\end{code}
+
+everything is fine.
+
+The beauty of this is that we can define functions that work on all kinds of \texttt{Data},
+but still can't turn unvalidated data into validated data
+
+\begin{code}
+static toUpperCase<M extends State>(data: Data<M>): Data<M> {
+  return new Data(data.input.toUpperCase())
+}
+\end{code}
+
+One last thing, what happens if you try to validate the input \textbf{twice}?
+
+\begin{code}
+const data = Data.make('hello')
+Data.validate(data).chain(validated =>
+  Data.validate(validated)
+)
+\end{code}
+
+TypeScript complains!
+
+\begin{code}
+[ts]
+Argument of type 'Data<"Validated">' is not assignable
+  to parameter of type 'Data<"Unvalidated">'.
+  Type '"Validated"' is not assignable to type '"Unvalidated"'.
+\end{code}
+
+This technique is perfect for validating user input to a web application.
+We can ensure \textbf{with almost zero overhead} that the data is validated \textbf{once and only once} everywhere that it needs to be,
+or else we get a compile-time error.
+
+\subsection{Finite state machines}
+
+Vediamo un'altra implementazione di una macchina a stati finiti.
+
+L'implementazione si basa su questi due principi
+
+\begin{itemize}
+\item gli stati sono rappresentati da una struttura dati \texttt{Node} contenente un valore e una indicazione dello stato corrente
+\item gli eventi / transizioni sono rappresentate da funzioni
+\end{itemize}
+
+Si consideri la seguente macchina a stati finiti
+
+\[
+\xymatrixrowsep{3cm}
+\xymatrixcolsep{3cm}
+\xymatrix{
+  S1 \ar[r]^{len} & S2 \ar@(ul,ur)^{double} \ar@(dl,dr)_{inc} \ar[r]^{gt10} & S3 \\
+}
+\]
+
+\begin{code}
+type State = "S1" | "S2" | "S3"
+
+class Node<S extends State, A> {
+  readonly S!: S
+  constructor(readonly value: A) {}
+}
+
+const start = (value: string): Node<"S1", string> =>
+  new Node(value)
+\end{code}
+
+Ora definiamo una operazione per ogni arco del grafo
+
+\begin{code}
+const len = (
+  input: Node<"S1", string>
+): Node<"S2", number> => new Node(input.value.length)
+
+const double = (
+  input: Node<"S2", number>
+): Node<"S2", number> => new Node(input.value * 2)
+
+const inc = (
+  input: Node<'S2', number>
+): Node<'S2', number> => new Node(input.value + 1)
+
+const gt10 = (
+  input: Node<"S2", number>
+): Node<"S3", boolean> => new Node(input.value > 10)
+\end{code}
+
+La corretta successione delle operazioni ora è assicurata staticamente
+
+\begin{code}
+double(start("foo")) // error
+double(len(start("foo"))) // ok
+\end{code}
+
+Volendo le operazioni possono anche essere definite come metodi, il che rende più comodo concatenarle,
+sfruttando la possibilità di annotare \texttt{this}.
+
+Inoltre posso imporre uno stato iniziale rendendo il costruttore privato
+
+\begin{code}
+class Node2<S extends State, A> {
+  readonly S!: S
+  static start(value: string): Node2<"S1", string> {
+    return new Node2(value)
+  }
+  private constructor(private readonly value: A) {}
+  len(this: Node2<"S1", string>): Node2<"S2", number> {
+    return new Node2(this.value.length)
+  }
+  double(this: Node2<"S2", number>): Node2<"S2", number> {
+    return new Node2(this.value * 2)
+  }
+  inc(this: Node2<"S2", number>): Node2<"S2", number> {
+    return new Node2(this.value + 1)
+  }
+  gt10(this: Node2<"S2", number>): Node2<"S3", boolean> {
+    return new Node2(this.value > 10)
+  }
+}
+\end{code}
+
+Ancora una volta la corretta successione delle operazioni è assicurata staticamente
+
+\begin{code}
+Node2.start("foo").double()
+// static error: Type '"S1"' is not assignable to type '"S2"'
+
+Node2.start("foo")
+  .len()
+  .double() // ok
+\end{code}
+
+Posso anche richiedere un esplicito stato finale
+
+\begin{code}
+const final: Node2<"S3", boolean> = Node2.start("foo")
+  .len()
+  .gt10()
+\end{code}
+
+\begin{exercise}
+Modellare il seguente grafo (operazioni su una \texttt{Door}), mantenendo il conteggio delle
+volte in cui il campanello è stato suonato
+
+\[
+\xymatrixrowsep{3cm}
+\xymatrixcolsep{3cm}
+\xymatrix{
+  Closed \ar@/_0.5cm/[r]_{\texttt{open}} \ar@(ul,ur)^{\texttt{ring}} & Open \ar@/_0.5cm/[l]_{\texttt{close}} \\
+}
+\]
+\end{exercise}
+
+\begin{exercise}
+Modellare il seguente grafo (operazioni su una \texttt{Response})
+
+\[
+\xymatrixrowsep{3cm}
+\xymatrixcolsep{3cm}
+\xymatrix{
+  StatusOpen \ar[r]^{\texttt{status}} & HeadersOpen \ar@(ul,ur)^{\texttt{headers}} \ar[d]^{\texttt{closeHeaders}} \\
+  ResponseEnded & BodyOpen \ar[l]^{\texttt{send}} \\
+}
+\]
+\end{exercise}
+
+\subsection{Un \texttt{EventEmitter} type safe}
+
+Supponiamo di dover modellare un \texttt{EventEmitter}
+
+\begin{code}
+interface EventEmitter {
+  emit: (name: string, data: any) => void
+  listen: (name: string, handler: (data: any) => void) => void
+}
+\end{code}
+
+Questo modello è insoddisfacente
+
+\begin{itemize}
+  \item non c'è relazione tra l'evento e i dati associati
+  \item non c'è relazione tra l'emissione dell'evento e i relativi listener
+\end{itemize}
+
+Si può rimediare definendo un phantom type \texttt{Event} che immagazzina il tipo di dato relativo ad un evento
+
+\begin{code}
+class Event<D> {
+  readonly D!: D
+  constructor(readonly name: string) {}
+}
+
+interface EventEmitter {
+  emit: <D>(evt: Event<D>, data: D) => void
+  listen: <D>(evt: Event<D>, handler: (data: D) => void) => void
+}
+
+const evt1 = new Event<string>('evt1')
+const evt2 = new Event<number>('evt2')
+
+declare const ee: EventEmitter
+
+ee.emit(evt1, 'foo') // ok
+ee.emit(evt1, 1) // static error
+ee.emit(evt2, 1) // ok
+
+ee.listen(evt1, data => console.log(data.trim()))
+ee.listen(evt2, data => console.log(data * 2))
+\end{code}
+
+\subsection{Estrarre i tipi da mappe eterogenee}
+
+I phantom type sono utili anche per manipolare mappe i cui valori sono di tipo eterogeneo
+
+\begin{code}
+type EventMap = { [key: string]: Event<any> }
+
+const map = {
+  evt1,
+  evt2
+}
+
+type Handlers<EM extends EventMap> = {
+  [K in keyof EM]: (data: EM[K]["D"]) => void
+}
+
+type MyHandlers = Handlers<typeof map>
+/* same as
+type MyHandlers = {
+    evt1: (data: string) => void;
+    evt2: (data: number) => void;
+}
+*/
+\end{code}
+
+\newpage
+\section{Newtypes}
+
+Non sempre i tipi riescono a modellare in modo soddisfacente un sistema, si consideri la seguente funzione
+
+\begin{code}
+declare function getPost(a: string, b: string): string
+\end{code}
+
+Cosa sono \texttt{a} e \texttt{b}? Usiamo dei nomi più parlanti per gli argomenti
+
+\begin{code}
+declare function getPost(
+  postId: string,
+  facebookToken: string
+): string
+\end{code}
+
+e anche per i tipi
+
+\begin{code}
+type PostId = string
+type FacebookToken = string
+type PostContents = string
+
+declare function getPost(
+  postId: PostId,
+  facebookToken: FacebookToken
+): PostContents
+\end{code}
+
+ma il type system vede ancora \texttt{(string, string) -> string} (e anche voi in VSCode),
+
+Posso per errore scambiare l'ordine di \texttt{PostId} e \texttt{FacebookToken} essendo tutte e due stringhe, il type checker non mi avverte.
+
+\begin{quote}
+A common programming practice is to define a type whose representation is identical to an existing one but which
+has a separate identity in the type system.
+\end{quote}
+
+Un esempio tipico sono i valori espressi in una qualche unità di misura
+
+\begin{code}
+type Celsius = number
+type Fahrenheit = number
+
+const celsius2fahrenheit = (celsius: Celsius): Fahrenheit =>
+  celsius * 1.8 + 32
+
+const c: Celsius = 1
+
+celsius2fahrenheit(c)
+
+const f: Fahrenheit = 33.8
+
+celsius2fahrenheit(f) // oops...
+\end{code}
+
+I type alias danno qualche beneficio in termini di documentazione ma non offrono nessun vantaggio dal punto di vista della type safety.
+
+\subsection{Phantom type wrapper}
+
+Una soluzione è quella di creare dei wrapper simulando i tipi nominali
+
+\begin{code}
+class Newtype<M, A> {
+  readonly M!: M
+  constructor(readonly value: A) {}
+}
+
+class Celsius extends Newtype<"Celsius", number> {}
+class Fahrenheit extends Newtype<"Fahrenheit", number> {}
+
+const celsius2fahrenheit = (celsius: Celsius): Fahrenheit =>
+  new Fahrenheit(celsius.value * 1.8 + 32)
+
+const f = new Fahrenheit(33.8)
+
+celsius2fahrenheit(f)
+// static error: Type '"Fahrenheit"' is not assignable
+// to type '"Celsius"'
+\end{code}
+
+Un \texttt{newtype} tuttavia ha la caratteristica di \emph{non modificare la rappresentazione a runtime} cosa che chiaramente
+non succede con un wrapper. È possibile implementare in TypeScript un nozione equivalente?
+
+\subsection{Implementazione tramite \texttt{Iso}}
+
+Dato che newtype di un tipo \texttt{A} è \emph{isomorfo} ad \texttt{A} possiamo usare un \texttt{Iso} per passare da uno
+all'altro.
+
+\begin{code}
+interface Newtype<M, A> {
+  readonly M: M
+  readonly A: A
+}
+
+const unsafeCoerce = <A, B>(a: A): B => a as any
+
+const anyIso = new Iso<any, any>(unsafeCoerce, unsafeCoerce)
+
+const iso = <S extends Newtype<any, any>>(): Iso<
+  S,
+  S["A"]
+> => anyIso
+
+interface Celsius extends Newtype<"Celsius", number> {}
+const celsiusIso = iso<Celsius>()
+
+interface Fahrenheit extends Newtype<"Fahrenheit", number> {}
+const fahrenheitIso = iso<Fahrenheit>()
+
+const celsius2fahrenheit = (celsius: Celsius): Fahrenheit =>
+  fahrenheitIso.from(celsiusIso.to(celsius) * 1.8 + 32)
+
+const f: Fahrenheit = fahrenheitIso.from(33.8)
+
+celsius2fahrenheit(f)
+// static error: Type '"Fahrenheit"' is not
+// assignable to type '"Celsius"'
+\end{code}
+
+Sfruttando il subtyping è possible codificare comportamenti interessanti
+
+\begin{code}
+interface NonZero
+  extends Newtype<{ NonZero: true }, number> {}
+interface Positive
+
+  extends Newtype<
+      { NonZero: true; Positive: true },
+      number
+    > {}
+
+declare function inverse(nz: NonZero): NonZero
+declare function mult(a: Positive, b: Positive): Positive
+
+declare const nonZero: NonZero
+declare const positive: Positive
+
+inverse(nonZero)
+inverse(positive)
+mult(positive, nonZero)
+// error: Property 'Positive' is missing
+// in type '{ NonZero: true; }'
+\end{code}
+
+\newpage
+\section{Validazione a runtime}
+
+TypeScript ci aiuta ad avere type safety all'interno del sistema ma alla sua frontiera occorre validare i dati in ingresso.
+Scrivere manualmente le validazioni è noioso e prono ad errori, vediamo una soluzione più economica:
+definire un runtime type system che collabori con lo static type system.
+
+\begin{boxed}
+live coding...
+\end{boxed}
+
+\newpage
+\section{Covarianza e controvarianza}
+
+TypeScript 2.6 ha introdotto un nuovo flag \texttt{strictFunctionTypes} (contenuto nel gruppo \texttt{strict})
+che abilita il controllo della \emph{varianza} sulle funzioni.
+
+È perciò necessario capire cosa sia la varianza e come questa influisce sul design delle API e suigli errori che il compilatore può emettere.
+
+\begin{definition}
+Within the type system of a programming language, a typing rule or a type constructor \texttt{T} is:
+\begin{itemize}
+\item \emph{covariant} if it preserves the ordering of types ($\leq$), which orders types from more specific to more generic
+\item \emph{contravariant} if it reverses this ordering
+\item \emph{bivariant} if both of these apply (i.e., both \texttt{T<A> $\leq$ T<B>} and \texttt{T<B> $\leq$ T<A>} at the same time)
+\item \emph{invariant} if neither of these applies
+\end{itemize}
+\end{definition}
+
+\subsection{Array}
+
+In teoria
+
+\begin{itemize}
+  \item Read-only data types (sources) can be covariant
+  \item write-only data types (sinks) can be contravariant
+  \item Mutable data types which act as both sources and sinks should be invariant.
+\end{itemize}
+
+In TypeScript gli array invece sono \textbf{covarianti}, ovvero
+
+\texttt{Array<A> $\leq$ Array<B>} se \texttt{A $\leq$ B}
+
+\begin{code}
+const xs: Array<number> = [1, 2, 3]
+const ys: Array<number | undefined> = xs // ok
+\end{code}
+
+Attenzione però, questo comportamento è \emph{sound} solo se gli array sono \textbf{immutabili}
+
+\begin{code}
+ys.push(undefined) // ok :(
+\end{code}
+
+\subsection{Functions}
+
+Le funzioni sono \textbf{controvarianti} in input e \textbf{covarianti} in output, ovvero
+
+\texttt{(a:A) => B $\leq$ (c:C) => D} se \texttt{A $\leq$ C} e \texttt{D $\leq$ B}
+
+\[
+\xymatrixrowsep{3cm}
+\xymatrixcolsep{8cm}
+\xymatrix{
+  C \ar[rdd] \\
+  A \ar[r] & B \\
+    & D \\
+}
+\]
+
+\newpage
+\section{React}
+
+\subsection{Default props}
+
+\subsubsection{Il problema}
+
+\subsubsection{Una soluzione}
+
+\begin{code}
+// default props
+type DP = { foo: string }
+
+// non default props
+type NDP = { bar: number; baz: boolean }
+
+class MyComponent extends React.Component<DP & NDP> {
+  // type-checked defaultProps
+  static defaultProps: DP = { foo: 'foo' }
+
+  render() {
+    // default props appear as required within the component
+    const { foo, bar, baz } = this.props
+    return (
+      <div>
+        {foo.trim()} {baz ? bar * 2 : 0}
+      </div>
+    )
+  }
+}
+
+// make default props optional
+default MyComponent as React.ComponentClass<
+  Partial<DP> & NDP
+>
+\end{code}
+
+\paragraph{Features}
+
+\begin{itemize}
+  \item the value \texttt{defaultProps} is type-checked
+  \item default props appear as required within the component but optional to the consumer
+  \item if you forget the last cast the result is even more type-safe and the fix is backward compatible
+\end{itemize}
+
+\subsection{Componenti polimorfiche}
+
+Se si usa JSX le componenti polimorfiche sono supportate solo se sono implementate tramite funzioni (stateless components).
+Per le componenti definite come classi un workaround possibile è la specializzazione prima dell'utilizzo. In quest'ultimo caso
+di consiglia di aggiungere un default \texttt{never} ai type parameter per evitare un utilizzo non corretto della componente
+
+\begin{code}
+interface Props<T> {
+  a: T
+  b: T[]
+}
+
+declare const Comp1: <T>(
+  props: Props<T>
+) => React.ReactElement<any>
+
+declare class Comp2<T> extends React.Component<Props<T>> {
+  render(): React.ReactElement<any>
+}
+
+// specializzazione
+declare class MyComp2 extends Comp2<number> {}
+
+const props = {
+  a: '',
+  b: [2]
+}
+;<Comp1 {...props} /> // error
+;<Comp2 {...props} /> // no error
+
+// specializzazione
+declare class MyComp2 extends Comp2<number> {}
+
+;<MyComp2 {...props} /> // error
+
+// usare `never` come default per evitare un cattivo uso
+declare class Comp3<T = never> extends React.Component<
+  Props<T>
+> {
+  render(): React.ReactElement<any>
+}
+
+;<Comp3 {...props} /> // error
+\end{code}
+
+\end{document}

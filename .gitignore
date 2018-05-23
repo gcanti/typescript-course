@@ -1,0 +1,6 @@
+*.log
+node_modules
+_minted-at
+at.*
+script.md
+!at.tex

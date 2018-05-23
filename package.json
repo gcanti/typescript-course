@@ -1,0 +1,25 @@
+{
+  "name": "typescript-course",
+  "version": "0.0.1",
+  "description": "Esercizi del corso di programmazione avanzata con TypeScript",
+  "scripts": {
+    "test": "typings-checker --allow-expect-error",
+    "test-all": "npm test -- solutions/**/*.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "dependencies": {
+    "express": "^4.16.3",
+    "lodash": "^4.17.10",
+    "react": "^16.4.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.11.1",
+    "@types/lodash": "^4.14.109",
+    "@types/node": "^10.1.2",
+    "@types/react": "^16.3.14",
+    "prettier": "1.11.1",
+    "typescript": "2.8.3",
+    "typings-checker": "^2.0.0"
+  }
+}
