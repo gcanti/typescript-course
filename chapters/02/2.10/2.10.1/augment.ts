@@ -9,3 +9,5 @@ declare module './Foo' {
 Foo.prototype.doSomethingElse = function() {
   return this.doSomething().length
 }
+
+new Foo().doSomethingElse() // ok

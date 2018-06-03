@@ -13,6 +13,7 @@
 \newtheorem{definition}{Definizione}[section]
 \newtheorem{example}{Esempio}[subsection]
 \newtheorem{exercise}{Esercizio}[subsection]
+\newtheorem{observation}{Osservazione}[subsection]
 
 \newenvironment{boxed}
     {\begin{center}
@@ -155,9 +156,11 @@ const x: number = head([]) // no error
 La funzione \texttt{readFileSync}
 
 \begin{code}
-import * as fs from 'fs'
+import * as fs from "fs"
 
-fs.readFileSync('') // throws no such file or directory
+// should return `string`
+fs.readFileSync("", "utf8")
+// throws "no such file or directory" instead
 \end{code}
 \end{example}
 
@@ -182,7 +185,7 @@ Quando possibile, cercate di definire funzioni totali
 
 \subsection{Strutture dati immutabili}
 
-In TypeScript usare strutture dati mutabili può condurre ad errori a runtime
+In TypeScript usare strutture dati \textbf{mutabili} può condurre ad errori a runtime
 
 \begin{code}
 const xs: Array<string> = ["foo", "bar"]
@@ -252,6 +255,51 @@ Il tipo \texttt{any} è sia \emph{top type} sia \emph{bottom type}.
 Cercate di utilizzare \texttt{any} solo nelle implementazioni e non nelle firme
 \end{boxed}
 
+\begin{observation}
+Un problema di \texttt{any} è che non è del tutto adatto a rappresentare input non validati
+\end{observation}
+
+\begin{example}
+\texttt{JSON.parse} è unsafe
+
+\begin{code}
+const payload = `{"foo":"bar"}`
+const x = JSON.parse(payload)
+// `x` è di tipo `any`
+x.bar.trim() // runtime error:
+// Cannot read property 'trim' of undefined
+\end{code}
+\end{example}
+
+Una possibile soluzione è utilizzare la seguente unione
+
+\begin{code}
+type unknown =
+  | object // vedi sezione seguente
+  | number
+  | string
+  | boolean
+  | symbol
+  | undefined
+  | null
+\end{code}
+
+In \texttt{typescript@3} ci sarà un tipo \texttt{unknown} ufficiale.
+
+\subsection{Il tipo \texttt{object}}
+
+Il tipo \texttt{object} rappresenta tutti i valori meno quelli primitivi
+
+\begin{code}
+const x1: object = { foo: "bar" }
+const x2: object = [1, 2, 3]
+const x3: object = 1 // error
+const x4: object = "foo" // error
+const x5: object = true // error
+const x6: object = null // error
+const x7: object = undefined // error
+\end{code}
+
 \newpage
 
 \section{Tour delle feature avanzate}
@@ -284,10 +332,6 @@ declare class Foo {
 }
 \end{code}
 \end{example}
-
-\begin{exercise}
-Provate a definire e usare la funzione \texttt{f}
-\end{exercise}
 
 \subsection{Overloading}
 
@@ -352,14 +396,10 @@ Una funzione viene detta \emph{polimorfica} se può gestire diversi tipi paramet
 
 \begin{code}
 // una funzione monomorfica
-const head = (xs: Array<number>): number | undefined => {
-  return xs[0]
-}
+declare function head(xs: Array<number>): number | undefined
 
 // una funzione polimorfica
-const head = <A>(xs: Array<A>): A | undefined => {
-  return xs[0]
-}
+declare function head<A>(xs: Array<A>): A | undefined
 \end{code}
 
 Le funzioni polimorfiche favoriscono una implementazione corretta e fanno emergere le assunzioni nascoste
@@ -652,7 +692,7 @@ type Age = Person["age"]
 type Age = number
 */
 
-type Unknown = Person["foo"] // error
+Person["foo"] // error
 \end{code}
 \end{example}
 
@@ -753,7 +793,7 @@ ove
 Creare un \emph{option object}
 
 \begin{code}
-type Flag = 'option1' | 'option2' | 'option3'
+type Flag = "option1" | "option2" | "option3"
 
 type Options = { [K in Flag]: boolean }
 /* same as
@@ -766,7 +806,7 @@ type Options = {
 \end{code}
 \end{example}
 
-Come soluzione è possibile anche usare il tipo predefinito \texttt{Record} (vedi oltre)
+Come soluzione è possibile anche usare il tipo predefinito \texttt{Record} (per la sua definizione vedi oltre)
 
 \begin{code}
 type Options = Record<Flag, boolean>
@@ -780,7 +820,7 @@ Creare una mappa di predicati
 Dato lo string literal type
 
 \begin{code}
-type Key = 'foo'
+type Key = "foo"
 \end{code}
 
 derivare il tipo
@@ -913,6 +953,8 @@ declare module "./Foo" {
 Foo.prototype.doSomethingElse = function() {
   return this.doSomething().length
 }
+
+new Foo().doSomethingElse() // ok
 \end{code}
 \end{example}
 
@@ -976,6 +1018,32 @@ Vediamo qualche tipo built-in che sfrutta i conditional type
 type Exclude<T, U> = T extends U ? never : T;
 \end{code}
 \end{example}
+
+Vediamo come funziona con un esempio concreto
+
+\begin{code}
+// voglio una copia di `Person` tranne il campo `age`
+export interface Person {
+  firstName: string
+  lastName: string
+  age: number
+}
+
+type NotAge = Exclude<keyof Person, 'age'>
+
+type Explanation =
+  | ("firstName" extends "age" ? never : "firstName")
+  | ("lastName" extends "age" ? never : "lastName")
+  | ("age" extends "age" ? never : "age")
+
+type Result = Pick<Person, NotAge>
+/* same as
+type Result = {
+    firstName: string;
+    lastName: string;
+}
+*/
+\end{code}
 
 \begin{example}
 \texttt{Extract}

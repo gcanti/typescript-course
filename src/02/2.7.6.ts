@@ -6,7 +6,9 @@
 
 type Tuple = [number, string, boolean]
 
+// estrarre la prima componente
 type Num = never
+// estrarre la seconda componente
 type Str = never
 
 // tests
