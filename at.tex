@@ -1100,7 +1100,7 @@ type InstanceType<T extends new (...args: any[]) => any> =
 
 \begin{code}
 type Equals<A, B> = [A] extends [B] ?
-  ([B] extends [A] ? 'T' : 'F') : 'F'
+  ([B] extends [A] ? "T" : "F") : "F"
 
 type AssertEquals<A, B, Bool extends Equals<A, B>> = [A, Bool]
 \end{code}
@@ -1237,11 +1237,16 @@ Un \emph{Algebraic Data Type} (o ADT) è un tipo composto da product e/o sum typ
 Un product type è una collezione di tipi $A_i$ indicizzati da un insieme $I$.
 \end{definition}
 
+\begin{definition}
+Il \emph{prodotto cartesiano} di due insiemi $A$ e $B$ (indicato con $A \times B$)
+è l'insieme delle coppie $(a, b)$ tale che $a \in A$ e $b \in B$.
+\end{definition}
+
 Un product type è isomorfo\footnote{Due insiemi $A$ e $B$ sono isomorfi se esiste una funzione $f: A \rightarrow B$ iniettiva e suriettiva,
 ovvero se esiste una funzione $f^{-1}: B \rightarrow A$, detta \emph{funzione inversa} di $f$, tale che $f \circ f^{-1} = identity$}
 al prodotto cartesiano $\prod_i A_i$.
 
-Esponenti notevoli di questa famiglia sono le $n$-tuple, ove $I$ è un intervallo non vuoto dei numeri naturali
+Esponenti notevoli di questa famiglia sono le $n$-tuple, ove $I$ è un intervallo non vuoto di numeri naturali
 \footnote{$\{0\}$ per \texttt{Tuple1}, $\{0, 1\}$ per \texttt{Tuple2}, $\{0, 1, 2\}$ per \texttt{Tuple2}}
 
 \begin{example}
@@ -1492,8 +1497,8 @@ interface User {
 }
 
 interface Selection {
-  items: Array<User> // la lista degli utenti
-  current?: number   // l'indice della selezione corrente
+  items: Array<User> // <= la lista degli utenti
+  current?: number   // <= l'indice della selezione corrente,
                      // può essere undefined
 }
 \end{code}
@@ -1579,7 +1584,7 @@ class None<A> {
   // readonly type: string;
   readonly type: "None" = "None"
   map<B>(f: (a: A) => B): Option<B> {
-    return new None()
+    return this as any
   }
   chain<B>(f: (a: A) => Option<B>): Option<B> {
     return this as any
@@ -1714,7 +1719,7 @@ class Left<L, A> {
   readonly type: "Left" = "Left"
   constructor(readonly value: L) {}
   map<B>(f: (a: A) => B): Either<L, B> {
-    return new Left(this.value)
+    return this as any
   }
   chain<B>(f: (a: A) => Either<L, B>): Either<L, B> {
     return this as any
@@ -1745,7 +1750,7 @@ Ridefiniamo la funzione \texttt{inverse} in funzione del tipo \texttt{Either}
 
 \begin{code}
 const inverse = (x: number): Either<string, number> =>
-  x === 0 ? left('cannot divide by zero') : right(1 / x)
+  x === 0 ? left("cannot divide by zero") : right(1 / x)
 \end{code}
 
 Ancora una volta è possibile definire \texttt{doubleInverse} senza boilerplate
@@ -1940,7 +1945,10 @@ The problem they present is a very common one. You are loading a list of things 
 you just see zero items. In JavaScript your data model may look like this
 
 \begin{code}
-{ loading: true, items: [] }
+{
+  loading: true,
+  items: []
+}
 \end{code}
 
 But of course it's easy to forget to check the loading flag. What about using \texttt{null} in order to represent the "not loaded" case?
