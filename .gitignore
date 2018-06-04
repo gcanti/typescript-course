@@ -1,6 +1,9 @@
 *.log
 node_modules
 _minted-at
+_minted-at-toc
 at.*
+at-toc.*
 script.md
 !at.tex
+!at-toc.tex
