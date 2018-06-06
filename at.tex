@@ -1159,6 +1159,7 @@ Possibili soluzioni
 \item cambiare libreria
 \item definire un custom definition file
 \item definire una funzione wrapper con una tipizzazione sana
+\item castare ad una tipizzazione sana
 \item module augmentation / declaration merging
 \end{itemize}
 
@@ -1515,7 +1516,7 @@ Consideriamo la funzione
 const inverse = (x: number): number => 1 / x
 \end{code}
 
-Tale funzione si dice \emph{parziale} perchè non è definita per tutti i valri del dominio ($x = 0$).
+Tale funzione si dice \emph{parziale} perchè non è definita per tutti i valori del dominio ($x = 0$).
 Come possiamo gestire questa situazione?
 
 Una soluzione potrebbe essere lanciare un'eccezione
@@ -1584,10 +1585,10 @@ class None<A> {
   // readonly type: string;
   readonly type: "None" = "None"
   map<B>(f: (a: A) => B): Option<B> {
-    return this as any
+    return none
   }
   chain<B>(f: (a: A) => Option<B>): Option<B> {
-    return this as any
+    return none
   }
 }
 
@@ -1665,17 +1666,17 @@ Prima o poi dovrò affrontare il problema di stabilire cosa fare sia nel caso di
 La funzione \texttt{fold} permette di gestire i due casi
 
 \begin{code}
+class None<A> {
+  ...
+  fold<R>(whenNone: () => R, whenSome: (a: A) => R): R {
+    return whenNone()
+  }
+}
+
 class Some<A> {
   ...
   fold<R>(whenNone: () => R, whenSome: (a: A) => R): R {
     return whenSome(this.value)
-  }
-}
-
-class None<A> {
-  ...
-  fold<R>(whenSome: () => R, whenNone: (a: A) => R): R {
-    return whenSome()
   }
 }
 
