@@ -4,10 +4,10 @@
 
 */
 
-export declare function omit<
-  O extends object,
-  KS extends Array<keyof O>
->(o: O, keys: KS): Pick<O, Exclude<keyof O, KS[number]>>
+export declare function omit<O extends object, KS extends Array<keyof O>>(
+  o: O,
+  keys: KS
+): Pick<O, Exclude<keyof O, KS[number]>>
 
 // tests
 

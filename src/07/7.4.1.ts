@@ -25,11 +25,7 @@ type FSM<S, E> = (s: S, e: E) => Promise<S>
 
 type Amount = number
 
-const delay = <A>(
-  millis: number,
-  a: A,
-  message: string
-): Promise<A> =>
+const delay = <A>(millis: number, a: A, message: string): Promise<A> =>
   new Promise(res => {
     setTimeout(() => {
       console.log(message)
@@ -39,33 +35,20 @@ const delay = <A>(
 
 const PaymentProvider = {
   chargeCard: (card: Card, amount: Amount) =>
-    delay(
-      2000,
-      undefined,
-      `charging card ${card}: ${amount}`
-    )
+    delay(2000, undefined, `charging card ${card}: ${amount}`)
 }
 
 const ItemProvider = {
   calculatePrice: (items: Array<Item>) =>
-    delay(
-      2000,
-      100,
-      `calculating price for ${items.length} items`
-    )
+    delay(2000, 100, `calculating price for ${items.length} items`)
 }
 
 function fsm(s: State, e: Event): Promise<State> {
   return Promise.resolve(s)
 }
 
-const runFSM = <S, E>(fsm: FSM<S, E>) => (s: S) => (
-  fe: Array<E>
-): Promise<S> =>
-  fe.reduce(
-    (ps, e) => ps.then(s => fsm(s, e)),
-    Promise.resolve(s)
-  )
+const runFSM = <S, E>(fsm: FSM<S, E>) => (s: S) => (fe: Array<E>): Promise<S> =>
+  fe.reduce((ps, e) => ps.then(s => fsm(s, e)), Promise.resolve(s))
 
 const show = <A>(x: A): string => {
   const { type, ...rest } = x as any
@@ -73,10 +56,7 @@ const show = <A>(x: A): string => {
   return `(${type})`
 }
 
-const withLoggin = <S, E>(fsm: FSM<S, E>): FSM<S, E> => (
-  s,
-  e
-) =>
+const withLoggin = <S, E>(fsm: FSM<S, E>): FSM<S, E> => (s, e) =>
   fsm(s, e).then(s2 => {
     console.log(`- ${show(s)} × ${show(e)} → ${show(s2)}`)
     return s2

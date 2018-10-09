@@ -9,16 +9,12 @@ const unsafeCoerce = <A, B>(a: A): B => a as any
 
 const anyIso = new Iso<any, any>(unsafeCoerce, unsafeCoerce)
 
-const iso = <S extends Newtype<any, any>>(): Iso<
-  S,
-  S['A']
-> => anyIso
+const iso = <S extends Newtype<any, any>>(): Iso<S, S['A']> => anyIso
 
 interface Celsius extends Newtype<'Celsius', number> {}
 const celsiusIso = iso<Celsius>()
 
-interface Fahrenheit
-  extends Newtype<'Fahrenheit', number> {}
+interface Fahrenheit extends Newtype<'Fahrenheit', number> {}
 const fahrenheitIso = iso<Fahrenheit>()
 
 const celsius2fahrenheit = (celsius: Celsius): Fahrenheit =>
@@ -30,14 +26,9 @@ celsius2fahrenheit(f)
 // static error: Type '"Fahrenheit"' is not
 // assignable to type '"Celsius"'
 
-interface NonZero
-  extends Newtype<{ NonZero: true }, number> {}
+interface NonZero extends Newtype<{ NonZero: true }, number> {}
 
-interface Positive
-  extends Newtype<
-      { NonZero: true; Positive: true },
-      number
-    > {}
+interface Positive extends Newtype<{ NonZero: true; Positive: true }, number> {}
 
 declare function inverse(nz: NonZero): NonZero
 declare function mult(a: Positive, b: Positive): Positive

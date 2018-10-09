@@ -2,9 +2,7 @@ import { Either, right, left } from './Either'
 
 declare function readFile(path: string): Promise<string>
 
-declare function betterReadFile(
-  path: string
-): Promise<Either<Error, string>>
+declare function betterReadFile(path: string): Promise<Either<Error, string>>
 
 export const attempt = <L, A>(
   promise: Promise<A>,

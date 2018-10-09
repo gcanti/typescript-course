@@ -4,11 +4,7 @@
 
 */
 
-export declare function set<O, K extends keyof O>(
-  k: K,
-  v: O[K],
-  o: O
-): O
+export declare function set<O, K extends keyof O>(k: K, v: O[K], o: O): O
 
 // tests
 

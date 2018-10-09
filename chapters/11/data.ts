@@ -8,9 +8,7 @@ declare function myvalidation(s: string): boolean
 
 export class Data<M extends State> {
   readonly M!: M
-  static toUpperCase<M extends State>(
-    data: Data<M>
-  ): Data<M> {
+  static toUpperCase<M extends State>(data: Data<M>): Data<M> {
     return new Data(data.input.toUpperCase())
   }
   private constructor(readonly input: string) {}
@@ -26,12 +24,8 @@ export class Data<M extends State> {
   /**
    * returns none if the data doesn't validate
    */
-  static validate(
-    data: Data<Unvalidated>
-  ): Option<Data<Validated>> {
-    return myvalidation(data.input)
-      ? some(data as any)
-      : none
+  static validate(data: Data<Unvalidated>): Option<Data<Validated>> {
+    return myvalidation(data.input) ? some(data as any) : none
   }
 }
 

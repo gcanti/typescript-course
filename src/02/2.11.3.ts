@@ -4,17 +4,9 @@
 
 */
 
-export type ExtractTaggedUnionMember<
-  U,
-  tagName,
-  tagValue
-> = never
+export type ExtractTaggedUnionMember<U, tagName, tagValue> = never
 
-export type ExcludeTaggedUnionMember<
-  U,
-  tagName,
-  tagValue
-> = never
+export type ExcludeTaggedUnionMember<U, tagName, tagValue> = never
 
 // tests
 

@@ -31,9 +31,8 @@ export const none: Option<never> = new None()
 
 export const some = <A>(a: A): Option<A> => new Some(a)
 
-export const fromNullable = <A>(
-  a: A | null | undefined
-): Option<A> => (a == null ? none : some(a))
+export const fromNullable = <A>(a: A | null | undefined): Option<A> =>
+  a == null ? none : some(a)
 
 export const toNullable = <A>(fa: Option<A>): A | null =>
   fa.fold(() => null, a => a)

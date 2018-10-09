@@ -35,9 +35,7 @@ export const reducer = (s: State, a: Action): State => {
       }
     case 'UPDATE_TODO':
       return {
-        todos: s.todos.map(
-          todo => (todo.id === a.id ? a : todo)
-        )
+        todos: s.todos.map(todo => (todo.id === a.id ? a : todo))
       }
     case 'DELETE_TODO':
       return {

@@ -34,11 +34,7 @@ export type StatusOpen = 'StatusOpen'
 export type HeadersOpen = 'HeadersOpen'
 export type BodyOpen = 'BodyOpen'
 export type ResponseEnded = 'ResponseEnded'
-export type State =
-  | StatusOpen
-  | HeadersOpen
-  | BodyOpen
-  | ResponseEnded
+export type State = StatusOpen | HeadersOpen | BodyOpen | ResponseEnded
 
 export class Middleware<S extends State> {
   readonly S!: S
@@ -62,10 +58,7 @@ export class Middleware<S extends State> {
     }
     return this as any
   }
-  send(
-    this: Middleware<BodyOpen>,
-    body: string
-  ): Middleware<ResponseEnded> {
+  send(this: Middleware<BodyOpen>, body: string): Middleware<ResponseEnded> {
     this.res.send(body)
     return this as any
   }

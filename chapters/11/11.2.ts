@@ -5,24 +5,19 @@ export class Node<S extends State, A> {
   constructor(readonly value: A) {}
 }
 
-export const start = (value: string): Node<'S1', string> =>
-  new Node(value)
+export const start = (value: string): Node<'S1', string> => new Node(value)
 
-const len = (
-  input: Node<'S1', string>
-): Node<'S2', number> => new Node(input.value.length)
+const len = (input: Node<'S1', string>): Node<'S2', number> =>
+  new Node(input.value.length)
 
-const double = (
-  input: Node<'S2', number>
-): Node<'S2', number> => new Node(input.value * 2)
+const double = (input: Node<'S2', number>): Node<'S2', number> =>
+  new Node(input.value * 2)
 
-const inc = (
-  input: Node<'S2', number>
-): Node<'S2', number> => new Node(input.value + 1)
+const inc = (input: Node<'S2', number>): Node<'S2', number> =>
+  new Node(input.value + 1)
 
-const gt10 = (
-  input: Node<'S2', number>
-): Node<'S3', boolean> => new Node(input.value > 10)
+const gt10 = (input: Node<'S2', number>): Node<'S3', boolean> =>
+  new Node(input.value > 10)
 
 double(start('foo')) // error
 double(len(start('foo'))) // ok

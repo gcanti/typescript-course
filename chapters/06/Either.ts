@@ -9,10 +9,7 @@ export class Left<L, A> {
   chain<B>(f: (a: A) => Either<L, B>): Either<L, B> {
     return this as any
   }
-  fold<R>(
-    whenLeft: (l: L) => R,
-    whenRight: (a: A) => R
-  ): R {
+  fold<R>(whenLeft: (l: L) => R, whenRight: (a: A) => R): R {
     return whenLeft(this.value)
   }
 }
@@ -26,16 +23,11 @@ export class Right<L, A> {
   chain<B>(f: (a: A) => Either<L, B>): Either<L, B> {
     return f(this.value)
   }
-  fold<R>(
-    whenLeft: (l: L) => R,
-    whenRight: (a: A) => R
-  ): R {
+  fold<R>(whenLeft: (l: L) => R, whenRight: (a: A) => R): R {
     return whenRight(this.value)
   }
 }
 
-export const left = <L, A>(l: L): Either<L, A> =>
-  new Left(l)
+export const left = <L, A>(l: L): Either<L, A> => new Left(l)
 
-export const right = <L, A>(a: A): Either<L, A> =>
-  new Right(a)
+export const right = <L, A>(a: A): Either<L, A> => new Right(a)

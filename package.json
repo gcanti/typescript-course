@@ -4,7 +4,8 @@
   "description": "Esercizi del corso di programmazione avanzata con TypeScript",
   "scripts": {
     "test": "typings-checker --allow-expect-error",
-    "test-all": "npm test -- solutions/**/*.ts"
+    "test-all": "npm test -- solutions/**/*.ts",
+    "fix-prettier": "prettier --write \"./{src,solutions,chapters}/**/*.ts\""
   },
   "keywords": [],
   "author": "",
@@ -18,7 +19,7 @@
     "@types/lodash": "^4.14.109",
     "@types/node": "^10.1.2",
     "@types/react": "^16.3.14",
-    "prettier": "1.11.1",
+    "prettier": "^1.14.3",
     "typescript": "2.8.3",
     "typings-checker": "^2.0.0"
   }

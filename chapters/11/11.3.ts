@@ -5,10 +5,7 @@ export class Event<D> {
 
 interface EventEmitter {
   emit: <D>(evt: Event<D>, data: D) => void
-  listen: <D>(
-    evt: Event<D>,
-    handler: (data: D) => void
-  ) => void
+  listen: <D>(evt: Event<D>, handler: (data: D) => void) => void
 }
 
 const evt1 = new Event<string>('evt1')
