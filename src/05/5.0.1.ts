@@ -1,6 +1,6 @@
 /*
 
-  Esercizio: rappresentare il tipo `JSON`
+  Esercizio: modellare il tipo `JSON`
 
 */
 

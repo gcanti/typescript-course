@@ -3,8 +3,13 @@ export const x = {
   baz: 1
 }
 
+// value-level
+const X = typeof x
+// "object"
+
+// type-level
 type X = typeof x
-/* same as
+/*
 type X = {
   foo: string;
   baz: number;

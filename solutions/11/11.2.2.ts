@@ -4,7 +4,14 @@
 
 */
 
-import { Request, Response, RequestHandler } from 'express'
+import { Response } from 'express'
+import {
+  BodyOpen,
+  HeadersOpen,
+  ResponseEnded,
+  State,
+  StatusOpen
+} from './11.2.1'
 
 const OK: 200 = 200
 const Created: 201 = 201
@@ -28,16 +35,10 @@ export const Status = {
   NotAcceptable
 }
 
-export type Status = typeof Status[keyof typeof Status]
+type Status = (typeof Status)[keyof typeof Status]
 
-export type StatusOpen = 'StatusOpen'
-export type HeadersOpen = 'HeadersOpen'
-export type BodyOpen = 'BodyOpen'
-export type ResponseEnded = 'ResponseEnded'
-export type State = StatusOpen | HeadersOpen | BodyOpen | ResponseEnded
-
-export class Middleware<S extends State> {
-  readonly S!: S
+class Middleware<S extends State> {
+  private readonly S!: S
   static start(res: Response): Middleware<StatusOpen> {
     return new Middleware(res)
   }
@@ -47,7 +48,7 @@ export class Middleware<S extends State> {
     status: Status
   ): Middleware<HeadersOpen> {
     this.res.status(status)
-    return this as any
+    return new Middleware(this.res)
   }
   headers(
     this: Middleware<HeadersOpen>,
@@ -56,30 +57,26 @@ export class Middleware<S extends State> {
     for (const field in headers) {
       this.res.setHeader(field, headers[field])
     }
-    return this as any
+    return new Middleware(this.res)
   }
-  send(this: Middleware<BodyOpen>, body: string): Middleware<ResponseEnded> {
+  send(
+    this: Middleware<BodyOpen>,
+    body: string
+  ): Middleware<ResponseEnded> {
     this.res.send(body)
-    return this as any
+    return new Middleware(this.res)
   }
 }
 
-const hello = (res: Response): Middleware<ResponseEnded> =>
-  Middleware.start(res)
-    .status(OK)
-    .headers({ 'Content-Type': 'text/html' })
-    .send('hello')
+const middlewareKO = (
+  res: Response
+): Middleware<HeadersOpen> => {
+  // $ExpectError .
+  return Middleware.start(res).status(-1)
+}
 
-//
-// usage
-//
-
-import * as express from 'express'
-
-const app = express()
-
-app.get('/', (_, res) => hello(res))
-
-app.listen(3000, () => {
-  console.log(`Server running on port 3000`)
-})
+const middlewareOK = (
+  res: Response
+): Middleware<HeadersOpen> => {
+  return Middleware.start(res).status(200)
+}

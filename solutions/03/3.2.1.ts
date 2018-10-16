@@ -6,11 +6,16 @@
 
 import * as _ from 'lodash'
 
+// e1 è di tipo `any` ma dovrebbe essere di tipo `number`
 const e1 = _.get({ a: { b: 1 } }, ['a', 'b'])
 
 // declare module 'lodash' {
 //   interface LoDashStatic {
-//     get<O extends object, K1 extends keyof O, K2 extends keyof O[K1]>(
+//     get<
+//       O extends object,
+//       K1 extends keyof O,
+//       K2 extends keyof O[K1]
+//     >(
 //       o: O,
 //       keys: [K1, K2]
 //     ): O[K1][K2]

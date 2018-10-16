@@ -1,4 +1,4 @@
-export const isString = (x: any): x is string => {
+export const isString = (x: unknown): x is string => {
   return typeof x === 'string'
 }
 

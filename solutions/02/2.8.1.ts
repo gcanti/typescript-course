@@ -1,6 +1,6 @@
 /*
 
-  Esercizio: ricavare un record di predicati da un record
+  Esercizio: derivare un record di predicati dalla seguente interfaccia
 
 */
 

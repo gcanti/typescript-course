@@ -1,12 +1,14 @@
-export class A {
-  readonly type!: 'A'
+export class USD {
+  private readonly brand!: symbol
+  constructor(readonly value: number) {}
 }
 
-export class B {
-  readonly type!: 'B'
+export class EUR {
+  private readonly brand!: symbol
+  constructor(readonly value: number) {}
 }
 
-declare function f(a: A): void
+declare function f(usd: USD): void
 
-f(new A())
-f(new B())
+f(new USD(1))
+f(new EUR(1))

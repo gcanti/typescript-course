@@ -23,7 +23,7 @@ interface Point {
 }
 
 type ImmutablePoint = Readonly<Point>
-/* same as
+/*
 type ImmutablePoint = {
     readonly x: number;
     readonly y: number;

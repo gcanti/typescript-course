@@ -9,7 +9,7 @@ type Tuple = [number, string, boolean]
 // estrarre la prima componente
 type Num = Tuple['0']
 // estrarre la seconda componente
-type Str = Tuple[1]
+type Str = Tuple['1']
 
 // tests
 

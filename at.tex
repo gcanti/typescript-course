@@ -8,6 +8,10 @@
 \usepackage{xcolor}
 \usepackage{minted}
 \usepackage{amsthm}
+\usepackage{enumitem,amssymb}
+
+\newlist{todolist}{itemize}{1}
+\setlist[todolist]{label=$\square$}
 
 \theoremstyle{definition}
 \newtheorem{definition}{Definizione}[section]
@@ -64,17 +68,21 @@ before the operation is actually performed. This may be at compile time or at ru
 \subsection{Prerequisiti}
 
 \begin{itemize}
-  \item \texttt{node e npm}
-  \item \texttt{typescript@2.8.3}
-  \item \texttt{typings-checker@2.0.0}
-  \item \texttt{tsconfig.json} con il flag \texttt{strict:true}
-  \item \texttt{ts-node@6.0.4}
-  \item (consigliato) \texttt{prettier@1.11.1+}
+  \item \texttt{node} e \texttt{npm}
+  \item \texttt{typescript@3.1.1+}
+  \item \texttt{typings-checker@2.0.0+}
+  \item \texttt{tsconfig.json}
+    \begin{itemize}
+      \item \texttt{"strict": true}
+      \item (consigliato) \texttt{"noImplicitAny": true}
+    \end{itemize}
+  \item \texttt{ts-node@6.0.4+}
+  \item (consigliato) \texttt{prettier@1.14.3+}
   \item (consigliato) \texttt{VS Code}
 \end{itemize}
 
 \begin{verbatim}
-npm i -g typescript@2.8.3 ts-node@6.0.4
+npm i -g typescript@latest ts-node@latest
 git clone https://github.com/gcanti/typescript-course.git
 cd typescript-course
 npm install
@@ -82,9 +90,18 @@ npm install
 
 \subsection{Come eseguire gli esercizi del corso}
 
+Gli esercizi sono contenuti nella cartella \texttt{src}. Una volta svolto un esercizio è possibile controllarne
+il risultato eseguendo il seguente comando da terminale
+
 \begin{verbatim}
 npm test -- src/<file>
 \end{verbatim}
+
+Se non viene sollevata alcuna eccezione la soluzione è da considerarsi corretta.
+
+\begin{observation}
+Le soluzioni fornite nel repository \texttt{typescript-course} costituiscono solo un punto di referimento, in generale \textbf{gli esercizi possono ammettere più di una soluzione corretta}.
+\end{observation}
 
 \subsection{Il type system di TypeScript è strutturale}
 
@@ -164,6 +181,11 @@ fs.readFileSync("", "utf8")
 \end{code}
 \end{example}
 
+\begin{observation}
+Il problema più grosso nel lanciare eccezioni è che questo fatto non si riflette nella firma della funzione,
+quindi il comportamento reale della funzione non è codificato a livello del type system di TypeScript.
+\end{observation}
+
 Una funzione parziale $f: X \rightarrow Y$ può essere sempre ricondotta ad una funzione totale $f'$ aggiungendo un valore speciale,
 chiamiamolo $None \notin Y$, al codominio e associandolo ad ogni valore di $X$ per cui $f$ non è definita
 
@@ -200,7 +222,21 @@ xs.map(s => s.trim())
 Quando possibile, cercate di usare strutture dati immutabili
 \end{boxed}
 
-\subsection{I tipi \texttt{any} e \texttt{never}}
+\subsection{Il tipo \texttt{object}}
+
+Il tipo \texttt{object} rappresenta tutti i valori meno quelli primitivi
+
+\begin{code}
+const x1: object = { foo: "bar" }
+const x2: object = [1, 2, 3]
+const x3: object = 1 // error
+const x4: object = "foo" // error
+const x5: object = true // error
+const x6: object = null // error
+const x7: object = undefined // error
+\end{code}
+
+\subsection{I tipi \texttt{any}, \texttt{never} e \texttt{unknown}}
 
 Se pensiamo ai tipi come insiemi, allora gli \emph{abitanti} di un tipo sono gli elementi di quell'insieme.
 
@@ -234,9 +270,26 @@ Il tipo \texttt{number} è supertipo del tipo \texttt{D}
 In che relazione sono i seguenti tipi?
 
 \begin{code}
-type E = { a: string }
-type F = { b: number, a: string }
+type T1 = { a: string }
+type T2 = { b: number, a: string }
 \end{code}
+
+\begin{todolist}
+\item \texttt{T1} è sottotipo di \texttt{T2}
+\item \texttt{T2} è sottotipo di \texttt{T1}
+\item nessuno dei due
+\end{todolist}
+
+\begin{code}
+type T3 = { a: string, b: boolean }
+type T4 = { b: number, a: string }
+\end{code}
+
+\begin{todolist}
+\item \texttt{T3} è sottotipo di \texttt{T4}
+\item \texttt{T4} è sottotipo di \texttt{T3}
+\item nessuno dei due
+\end{todolist}
 \end{exercise}
 
 \begin{definition}
@@ -250,20 +303,18 @@ Un tipo \texttt{X} si dice \emph{top type} se è supertipo di ogni altro tipo
 \end{definition}
 
 Il tipo \texttt{any} è sia \emph{top type} sia \emph{bottom type}.
-
-\begin{boxed}
-Cercate di utilizzare \texttt{any} solo nelle implementazioni e non nelle firme
-\end{boxed}
+Viene usato per "disabilitare" il type-checker (a volte risulta necessario).
+Usatelo con parsimonia.
 
 \begin{observation}
-Un problema di \texttt{any} è che non è del tutto adatto a rappresentare input non validati
+Un problema di \texttt{any} è che non è adatto a rappresentare \emph{input non validati}
 \end{observation}
 
 \begin{example}
-\texttt{JSON.parse} è unsafe
+\texttt{JSON.parse} è unsafe dato che il tipo di ritorno è \texttt{any}.
 
 \begin{code}
-const payload = `{"foo":"bar"}`
+const payload = `{"bar":"foo"}`
 const x = JSON.parse(payload)
 // `x` è di tipo `any`
 x.bar.trim() // runtime error:
@@ -271,40 +322,49 @@ x.bar.trim() // runtime error:
 \end{code}
 \end{example}
 
-Una possibile soluzione è utilizzare la seguente unione
+Dalla \texttt{3.0.1} una possibile soluzione è utilizzare il tipo \texttt{unknown}.
+
+Il tipo \texttt{unknown} è un top type ma \textbf{non è} un bottom type.
+
+Per poter utilizzare un valore di tipo \texttt{unknown} occorre \emph{raffinarlo}
+
+\begin{example}
+Un \texttt{JSON.parse} type safe (o quasi \footnote{può lanciare eccezioni})
 
 \begin{code}
-type unknown =
-  | object // vedi sezione seguente
-  | number
-  | string
-  | boolean
-  | symbol
-  | undefined
-  | null
+export const parse: (input: string) => unknown = JSON.parse
+
+const payload = `{"bar":"foo"}`
+const x = parse(payload)
+x.bar // static error: Object is of type 'unknown'
 \end{code}
+\end{example}
 
-In \texttt{typescript@3} ci sarà un tipo \texttt{unknown} ufficiale.
+\begin{observation}
+Ridefinire il tipo di una funzione può essere fatto in modo che non ci sia alcun costo a runtime.
+\end{observation}
 
-\subsection{Il tipo \texttt{object}}
-
-Il tipo \texttt{object} rappresenta tutti i valori meno quelli primitivi
+Raffinare un valore vuol dire scrivere del codice specifico che permette di provare al type checker alcune caratteristiche del valore
 
 \begin{code}
-const x1: object = { foo: "bar" }
-const x2: object = [1, 2, 3]
-const x3: object = 1 // error
-const x4: object = "foo" // error
-const x5: object = true // error
-const x6: object = null // error
-const x7: object = undefined // error
+if (typeof x === 'object') {
+  // x ha tipo object | null
+  if (x !== null) {
+    // x ha tipo object
+    const bar = (x as { [key: string]: unknown }).bar
+    if (typeof bar === 'string') {
+      // bar ha tipo string
+      console.log(bar.trim())
+    }
+  }
+}
 \end{code}
+
+Vedremo più avanti come sia possibile eliminare il boilerplate utilizzando le \emph{custom type guard}.
 
 \newpage
 
 \section{Tour delle feature avanzate}
-
-Facciamo un tour delle feature avanzate che offre il type system di TypeScript.
 
 \subsection{Inline declarations}
 
@@ -317,13 +377,13 @@ Costanti, variabili, funzioni e classi
 \begin{code}
 // costanti
 declare const a: number
-declare const g: (x: number) => void
 
 // variabili
 declare let b: number
 
 // funzioni
 declare function f(x: string): number
+declare const g: (x: string) => number
 
 // classi
 declare class Foo {
@@ -332,6 +392,8 @@ declare class Foo {
 }
 \end{code}
 \end{example}
+
+In molti degli esercizi sfrutteremo questa feature lavorando solo sulle dichiarazioni invece di preoccuparci dell'implementazione.
 
 \subsection{Overloading}
 
@@ -356,7 +418,7 @@ const x1 = f("foo")
 const x2 = f(1)
 \end{code}
 
-Definendo due overloading possiamo rendere preciso il comportamento
+Definendo due overloading possiamo rendere preciso il tipo della funzione
 
 \begin{code}
 declare function g(x: number): string
@@ -377,6 +439,21 @@ generato da TypeScript se \texttt{declaration = true} nel
 \texttt{tsconfig.json}.
 
 Gli overloading possono essere definiti anche per i metodi di una classe.
+
+\begin{code}
+class G {
+  g(x: number): string
+  g(x: string): number
+  g(x: string | number): number | string {
+    ...
+  }
+}
+\end{code}
+
+\begin{boxed}
+Gli overloading sono una possiblità \textbf{tecnica}, tuttavia valutate attentamente l'opportunità di definire una unione
+per il tipo di ritorno, in genere non è un design consigliabile
+\end{boxed}
 
 \begin{exercise}
 Tipizzare la funzione \texttt{compose}
@@ -416,10 +493,10 @@ const head = <A>(xs: Array<A>): A | undefined => {
 }
 \end{code}
 
-Per esempio la funzione identità ha una e una sola implementazione possibile
+Esempio notevole è la funzione identità che ammette una sola implementazione possibile
 
 \begin{code}
-const id = <A>(a: A): A => a
+const identity = <A>(a: A): A => a
 \end{code}
 
 \begin{boxed}
@@ -441,7 +518,7 @@ Le custom type guard servono a \emph{raffinare i tipi}. Un raffinemento di un ti
 tale che per ogni elemento vale un \emph{predicato}.
 
 \begin{definition}
-Un \emph{predicato} è una funzione con la seguente firma
+Un \emph{predicato} (sul tipo \texttt{A}) è una funzione con la seguente firma
 
 \begin{code}
 type Predicate<A> = (a: A) => boolean
@@ -452,7 +529,7 @@ type Predicate<A> = (a: A) => boolean
 In TypeScript la sintassi per definire un predicato non è sufficiente per raffinare un tipo
 
 \begin{code}
-const isString = (x: any): boolean => {
+const isString = (x: unknown): boolean => {
   return typeof x === "string"
 }
 
@@ -467,19 +544,28 @@ const f = (x: string | number): number => {
 \end{code}
 \end{example}
 
-Invece viene utilizzata questa sintassi (che definisce una type custom guard)
+Invece viene utilizzata questa sintassi (che definisce una custom type guard)
 
 \begin{code}
 type Refinement<A, B extends A> = (a: A) => a is B
 \end{code}
 
-Notate che \texttt{B} \textbf{deve essere assegnabile} ad \texttt{A}
+\begin{observation}
+Notate che \texttt{B} \textbf{deve essere assegnabile} ad \texttt{A}.
+O in altre parole \texttt{B} deve essere un \textbf{sottotipo} di \texttt{A}.
+\end{observation}
+
+\begin{boxed}
+La keyword \texttt{extends} può essere usata per \textbf{mettere in relazione} due type parameter
+\end{boxed}
+
+In particolare \texttt{extends} viene spesso usata per definire dei vincoli ad un type parameter che siano basati su un altro type parameter.
 
 \begin{example}
 Una semplice custom type guard: \texttt{isString}
 
 \begin{code}
-export const isString = (x: any): x is string => {
+export const isString = (x: unknown): x is string => {
   return typeof x === "string"
 }
 
@@ -495,8 +581,71 @@ const f = (x: string | number): number => {
 \end{code}
 \end{example}
 
+\begin{example}
+Riprendiamo l'esempio del capitolo precedentemente
+
+\begin{code}
+const payload = `{"bar":"foo"}`
+const x = parse(payload)
+
+/*
+if (typeof x === 'object') {
+  // x ha tipo object | null
+  if (x !== null) {
+    // x ha tipo object
+    const bar = (x as { [key: string]: unknown }).bar
+    if (typeof bar === 'string') {
+      // bar ha tipo string
+      console.log(bar.trim())
+    }
+  }
+}
+*/
+
+const isObject = (x: unknown): x is object =>
+  typeof x === 'object' && x !== null
+
+const isDictionary = (
+  x: unknown
+): x is { [key: string]: unknown } => isObject(x)
+
+const isString = (x: unknown): x is string =>
+  typeof x === 'string'
+
+if (isDictionary(x)) {
+  if (isString(x.bar)) {
+    console.log(x.bar.trim())
+  }
+}
+\end{code}
+\end{example}
+
+\begin{example}
+Alcune custom type guard sono predefinite, un esempio notevole è \texttt{Array.isArray}
+
+\begin{code}
+const payload = `{"bar":[1,2,3]}`
+const x = parse(payload)
+
+if (Array.isArray(x)) {
+  // x ha tipo Array<any>
+  console.log(x.keys)
+}
+\end{code}
+\end{example}
+
+Notate però che \texttt{Array.isArray} raffina a \texttt{Array<any>}.
+
+\begin{exercise}
+Definire una versione di \texttt{Array.isArray} più type-safe
+\end{exercise}
+
 \begin{exercise}
 Definire una custom type guard che raffina un valore qualsiasi in un \texttt{Array<number>}
+\end{exercise}
+
+\begin{exercise}
+È possibile generalizzare la soluzione precedente?
 \end{exercise}
 
 \subsection{Lifting di un valore: l'operatore \texttt{typeof}}
@@ -504,8 +653,13 @@ Definire una custom type guard che raffina un valore qualsiasi in un \texttt{Arr
 I valori e i tipi vivono in mondi separati, però è possibile passare dal mondo dei valori a quello dei tipo
 sfruttando l'operatore \texttt{typeof}.
 
+\begin{observation}
+Attenzione, in questo caso non stiamo parlando dell'omonimo operatore \texttt{typeof} di JavaScript, che lavora value-level, ma
+dell'operatore \texttt{typeof} di TypeScript, che lavora type-level.
+\end{observation}
+
 \begin{example}
-Ricavare il tipo di un valore
+Ricavare il tipo di un oggetto
 
 \begin{code}
 const x = {
@@ -513,8 +667,13 @@ const x = {
   baz: 1
 }
 
+// value-level
+const X = typeof x
+// "object"
+
+// type-level
 type X = typeof x
-/* same as
+/*
 type X = {
   foo: string;
   baz: number;
@@ -525,10 +684,10 @@ type X = {
 
 \subsection{Immutabilità: il modificatore \texttt{readonly}}
 
-Il modificatore \texttt{readonly} rende immutabili i campi di un record
+Il modificatore \texttt{readonly} rende immutabili i campi di un oggetto
 
 \begin{example}
-Rendere immutabile una interfaccia
+Rendere immutabile i campi di una interfaccia
 
 \begin{code}
 interface Person {
@@ -538,7 +697,7 @@ interface Person {
 
 declare const person: Person
 
-person.age = 42 // Cannot assign to 'agÈ because
+person.age = 42 // Cannot assign to 'age' because
 // it is a constant or a read-only property
 \end{code}
 \end{example}
@@ -566,7 +725,7 @@ interface Point {
 }
 
 type ImmutablePoint = Readonly<Point>
-/* same as
+/*
 type ImmutablePoint = {
     readonly x: number;
     readonly y: number;
@@ -582,8 +741,18 @@ class Point2D {
 }
 \end{code}
 
+\begin{example}
 È anche possibile rendere immutabile un array con il tipo predefinito
 \texttt{ReadonlyArray}.
+
+\begin{code}
+const x: ReadonlyArray<number> = [1, 2, 3]
+x.push(4) // error: Property 'push' does
+// not exist on type 'ReadonlyArray<number>'
+\end{code}
+\end{example}
+
+Ci sono interfacce analoghe per \texttt{Map} e \texttt{Set}, rispettivamente \texttt{ReadonlyMap} e \texttt{ReadonlySet}.
 
 \begin{exercise}
 Rendere immutabile la seguente interfaccia
@@ -603,7 +772,7 @@ interface Person {
 
 \subsubsection{Index type query operator: \texttt{keyof}}
 
-Così come è possibile, dato un oggetto, ricavarne le chiavi tramite la funzione \texttt{Object.keys}
+Così come è possibile, dato un oggetto, ricavare \textbf{il valore} delle chiavi tramite la funzione \texttt{Object.keys}
 
 \begin{code}
 const point = { x: 1, y: 2 }
@@ -611,10 +780,10 @@ const pointKeys = Object.keys(point)
 // [ "x", "y" ]
 \end{code}
 
-così è possibile ricavare il tipo delle chiavi di un oggetto (come unione) usando l'operatore \texttt{keyof}.
+così è possibile ricavare \textbf{il tipo} delle chiavi di un oggetto (come unione) usando l'operatore \texttt{keyof}.
 
 \begin{example}
-Estrarre le chiavi di un record
+Estrarre il tipo delle chiavi di una interfaccia
 
 \begin{code}
 interface Point {
@@ -623,7 +792,7 @@ interface Point {
 }
 
 type PointKeys = keyof Point
-/* same as
+/*
 type PointKeys = "x" | "y"
 */
 \end{code}
@@ -632,13 +801,14 @@ type PointKeys = "x" | "y"
 
 \begin{code}
 type ArrayKeys = keyof Array<number>
-/* same as
-type ArrayKeys = "length" | "toString" | "toLocaleString" |
-"push" | "pop" | "concat" | "join" | "reverse" | "shift" |
-"slice" | "sort" | "splice" | "unshift" | "indexOf" |
-"lastIndexOf" | "every" | "some" | "forEach" | "map" |
-"filter" | "reduce" | "reduceRight" | "entries" | "keys"
-| "values" | "find" | "findIndex" | "fill" | "copyWithin"
+/*
+type ArrayKeys = number | "length" | "toString" |
+"toLocaleString" | "push" | "pop" | "concat" | "join" |
+"reverse" | "shift" | "slice" | "sort" | "splice" |
+"unshift" | "indexOf" | "lastIndexOf" | "every" | "some" |
+"forEach" | "map" | "filter" | "reduce" | "reduceRight" |
+"entries" | "keys" | "values" | "find" | "findIndex" |
+"fill" | "copyWithin"
 */
 \end{code}
 
@@ -646,8 +816,8 @@ e le tuple
 
 \begin{code}
 type TupleKeys = keyof [string, number]
-/* same as
-type TupleKeys = "0" | "1" | "length" | "toString" |
+/*
+type TupleKeys = number | "0" | "1" | "length" | "toString" |
 "toLocaleString" | "push" | "pop" | "concat" | "join" |
 "reverse" | "shift" | "slice" | "sort" | "splice" |
 "unshift" | "indexOf" | "lastIndexOf" | "every" |
@@ -660,6 +830,15 @@ type TupleKeys = "0" | "1" | "length" | "toString" |
 
 \begin{exercise}
 Rendere type safe la seguente funzione \texttt{translate}
+
+\begin{code}
+const translations = {
+  when: "Quando",
+  where: "Dove"
+}
+
+export declare function translate(key: string): string
+\end{code}
 \end{exercise}
 
 \subsubsection{Indexed access operator \texttt{[]}}
@@ -674,7 +853,7 @@ const name = person["name"]
 così l'operatore \texttt{T[K]} permette di estrarre il tipo del campo \texttt{K} dal tipo \texttt{T}
 
 \begin{example}
-Estrarre il tipo di una chiave di un record
+Estrarre il tipo di una chiave di una interfaccia
 
 \begin{code}
 interface Person {
@@ -683,21 +862,21 @@ interface Person {
 }
 
 type Name = Person["name"]
-/* same as
+/*
 type Name = string
 */
 
 type Age = Person["age"]
-/* same as
+/*
 type Age = number
 */
 
-Person["foo"] // error
+type Unknown = Person["foo"] // error
 \end{code}
 \end{example}
 
 \begin{exercise}
-Ricavare il tipo del campo \texttt{baz} estraendolo dalla seguente definizione
+Ricavare il tipo del campo \texttt{baz} della seguente interfaccia
 
 \begin{code}
 interface Foo {
@@ -712,11 +891,15 @@ interface Foo {
 \end{exercise}
 
 \begin{exercise}
-Ricavare il tipo delle chiavi del campo \texttt{bar} di \texttt{Foo}
+Ricavare il tipo delle chiavi del campo \texttt{bar} dell'interfaccia \texttt{Foo} definita nel precedente esercizio.
 \end{exercise}
 
 \begin{exercise}
-Tipizzare la funzione \texttt{get}
+Tipizzare la seguente funzione \texttt{get} in modo che gli argomenti e il tipo di ritorno siano i più precisi possibile
+
+\begin{code}
+declare function get(key: string, obj: unknown): unknown
+\end{code}
 \end{exercise}
 
 \begin{exercise}
@@ -756,20 +939,40 @@ class Iso<S, A> {
 \end{exercise}
 
 \begin{exercise}
-Estrarre il tipo di una componente di una tupla
+Estrarre il tipo della prima e della seconda componente della seguente tupla
+
+\begin{code}
+type Tuple = [number, string, boolean]
+
+// estrarre la prima componente
+type Num = ?
+// estrarre la seconda componente
+type Str = ?
+
+\end{code}
 \end{exercise}
 
-Come è possibile estrarre l'unione dei tipi di una tupla?
+\begin{observation}
+Come è possibile estrarre l'\textbf{unione} dei tipi di una tupla? Accedendo con l'indice generico \texttt{number}
 
 \begin{code}
 type X = [string, number]
 
-// type ValuesOfX = string | number
 type ValuesOfX = X[number]
+// type ValuesOfX = string | number
 \end{code}
+\end{observation}
 
 \begin{exercise}
-Tipizzare la funzione \texttt{set}
+Tipizzare la seguente funzione \texttt{set} in modo che gli argomenti e il tipo di ritorno siano i più precisi possibile
+
+\begin{code}
+declare function set(
+  k: string,
+  v: unknown,
+  o: unknown
+): unknown
+\end{code}
 \end{exercise}
 
 \subsection{Mapped types}
@@ -796,7 +999,7 @@ Creare un \emph{option object}
 type Flag = "option1" | "option2" | "option3"
 
 type Options = { [K in Flag]: boolean }
-/* same as
+/*
 type Options = {
     option1: boolean;
     option2: boolean;
@@ -813,7 +1016,23 @@ type Options = Record<Flag, boolean>
 \end{code}
 
 \begin{exercise}
-Creare una mappa di predicati
+Derivare un record di predicati dalla seguente interfaccia
+
+\begin{code}
+interface X {
+  a: string
+  b: number
+  c: boolean
+}
+/*
+Risultato:
+{
+  a: (x: string) => boolean
+  b: (x: number) => boolean
+  c: (x: boolean) => boolean
+}
+*/
+\end{code}
 \end{exercise}
 
 \begin{exercise}
@@ -845,6 +1064,25 @@ type Partial<T> = { [P in keyof T]?: T[P] }
 \end{code}
 \end{example}
 
+\begin{observation}
+Il modificatore \texttt{?} rende opzionali tutti i campi.
+\end{observation}
+
+\begin{example}
+\texttt{Required<T>}
+
+\begin{code}
+/**
+ * Make all properties in T required
+ */
+type Required<T> = { [P in keyof T]-?: T[P] }
+\end{code}
+\end{example}
+
+\begin{observation}
+Il modificatore \texttt{-?} rende obbligatori tutti i campi.
+\end{observation}
+
 \begin{example}
 \texttt{Readonly<T>}
 
@@ -855,6 +1093,10 @@ type Partial<T> = { [P in keyof T]?: T[P] }
 type Readonly<T> = { readonly [P in keyof T]: T[P] }
 \end{code}
 \end{example}
+
+\begin{observation}
+Il modificatore \texttt{readonly} rende tutti i campi in sola lettura.
+\end{observation}
 
 \begin{example}
 \texttt{Pick<T, K>}
@@ -880,19 +1122,23 @@ type Record<K extends string, T> = { [P in K]: T }
 
 \begin{exercise}
 Rendere type safe la funzione \texttt{pick}
+
+\begin{code}
+declare function pick(ks: Array<string>, o: never): never
+\end{code}
 \end{exercise}
 
 \subsection{Subtyping e type parameter}
 
-La keyword \texttt{extends} viene usata per estendere una classe
+Come abbiamo gà visto la keyword \texttt{extends} viene usata per estendere una classe
 
 \begin{code}
 class Cat extends Animal {}
 \end{code}
 
-ma può essere usata anche per esprimere una relazioni dei type parameter.
+ma è spesso usata anche esprimere una relazioni tra type parameter.
 
-Vediamo un esempio in cui questa feature risulta utile
+Vediamo un altro esempio in cui questa feature risulta utile
 
 \begin{example}
 Definire un getter generico
@@ -916,7 +1162,8 @@ const getName = <T extends { name: string }>(x: T): string =>
 \end{example}
 
 \begin{exercise}
-Generalizzare \texttt{getName} in modo che lavori con qualsiasi record che abbia una proprietà \texttt{name}, anche se non è una stringa
+Generalizzare \texttt{getName} in modo che lavori con qualsiasi tipo che abbia una proprietà \texttt{name},
+indipendentemente dal suo tipo
 \end{exercise}
 
 \begin{exercise}
@@ -958,9 +1205,11 @@ new Foo().doSomethingElse() // ok
 \end{code}
 \end{example}
 
-\subsection{Conditional type}
+Il caso d'uso più comune per questa feature è quello di "correggere" i typings di una libreria esterna.
 
-I \emph{conditional type} hanno la seguente sintassi
+\subsection{Conditional types}
+
+I \emph{conditional types} hanno la seguente sintassi
 
 \begin{code}
 T extends U ? X : Y
@@ -992,7 +1241,7 @@ type T4 = TypeName<string[]>;  // "object"
 \end{code}
 \end{example}
 
-I conditional type \emph{distribuiscono} le unioni, ovvero se per esempio
+I conditional types \emph{distribuiscono} le unioni, ovvero se per esempio
 
 \begin{code}
 T extends U ? X : Y
@@ -1006,7 +1255,7 @@ T extends U ? X : Y
 | (C extends U ? X : Y)
 \end{code}
 
-Vediamo qualche tipo built-in che sfrutta i conditional type
+Vediamo qualche tipo built-in che sfrutta i conditional types
 
 \begin{example}
 \texttt{Exclude}
@@ -1084,18 +1333,6 @@ type ReturnType<T extends (...args: any[]) => any> =
 \end{example}
 
 \begin{example}
-\texttt{InstanceType}
-
-\begin{code}
-/**
- * Obtain the return type of a constructor function type
- */
-type InstanceType<T extends new (...args: any[]) => any> =
-  T extends new (...args: any[]) => infer R ? R : any;
-\end{code}
-\end{example}
-
-\begin{example}
 \texttt{Equals} e \texttt{AssertEquals}
 
 \begin{code}
@@ -1134,6 +1371,82 @@ Manipolazione di unioni taggate: estrarre o escludere dei membri
 Tipizzare la funzione \texttt{omit}
 \end{exercise}
 
+\subsection{Mapped tuples}
+
+Fino alla versione \texttt{3.0.x} i rest parameter erano tipizzabili esclusivamente con \texttt{Array}
+
+\begin{example}
+La funzione \texttt{Math.max}
+
+\begin{code}
+/**
+ * Returns the smaller of a set of supplied numeric
+ * expressions.
+ */
+min(...values: Array<number>): number
+\end{code}
+\end{example}
+
+Nel caso di \texttt{min} tipizzare con \texttt{Array} è corretto dato che i parametri sono omogenei (tutti di tipo \texttt{number}),
+ma come è possibile gestire parametri con tipi diversi?
+
+\begin{example}
+La funzione di utility \texttt{tuple}. Per capire perchè dovremmo aver bisogno di una tale funzione di utility si consideri il seguente
+
+\begin{code}
+// x: (string | number)[]
+const x = [1, "foo"]
+\end{code}
+
+Qui vorremmo che TypeScript inferisse \texttt{x: [number, string]} ma di default il type checker inferisce un valore di tipo \texttt{Array}.
+
+Per ovviare a questo problema possiamo definire una funzione di utility \texttt{tuple}
+
+\begin{code}
+function tuple<A, B>(a: A, b: B): [A, B] {
+  return [a, b]
+}
+
+// x: [number, string]
+const x = tuple(1, "foo")
+\end{code}
+
+E se volessimo una tupla con 3 componenti? Possiamo definire degli overloading ma è scomodo e il numero di overloading è arbitrario
+
+\begin{code}
+function tuple<A, B, C>(a: A, b: B, c: C): [A, B, C]
+function tuple<A, B>(a: A, b: B): [A, B]
+function tuple(...t: Array<any>): Array<any> {
+  return t
+}
+
+// y: [number, string, boolean]
+const y = tuple(1, "foo", true)
+\end{code}
+
+Oppure possiamo gestire un numero variabile di argomenti sfruttando le nuove capacità della versione \texttt{3.1.x}
+
+\begin{code}
+function tuple<T extends Array<any>>(...t: T): T {
+  return t
+}
+
+// x: [number, string]
+const x = tuple(1, "foo")
+// y: [number, string, boolean]
+const y = tuple(1, "foo", true)
+\end{code}
+
+\end{example}
+
+\begin{exercise}
+Tipizzare la seguente funzione \texttt{all} in modo che preservi le tuple
+
+\begin{code}
+function all(ps: Array<Promise<unknown>>): Promise<unknown>
+\end{code}
+\end{exercise}
+
 \newpage
 \section{Definition file}
 
@@ -1167,8 +1480,8 @@ Possibili soluzioni
 Correggere lodash (49.000.000 di download / mese)
 
 \begin{code}
-// lodash@4.17.10
-// @types/lodash@4.14.109
+// lodash@4.17.11
+// @types/lodash@4.14.118
 import * as _ from "lodash"
 
 const f = (a: number, b: string): number =>
@@ -1230,281 +1543,41 @@ live coding...
 \newpage
 \section{ADT (Algebraic Data Types)}
 
-Un \emph{Algebraic Data Type} (o ADT) è un tipo composto da product e/o sum types, anche innestati.
-
-\subsection{Product types}
-
-\begin{definition}
-Un product type è una collezione di tipi $A_i$ indicizzati da un insieme $I$.
-\end{definition}
-
-\begin{definition}
-Il \emph{prodotto cartesiano} di due insiemi $A$ e $B$ (indicato con $A \times B$)
-è l'insieme delle coppie $(a, b)$ tale che $a \in A$ e $b \in B$.
-\end{definition}
-
-Un product type è isomorfo\footnote{Due insiemi $A$ e $B$ sono isomorfi se esiste una funzione $f: A \rightarrow B$ iniettiva e suriettiva,
-ovvero se esiste una funzione $f^{-1}: B \rightarrow A$, detta \emph{funzione inversa} di $f$, tale che $f \circ f^{-1} = identity$}
-al prodotto cartesiano $\prod_i A_i$.
-
-Esponenti notevoli di questa famiglia sono le $n$-tuple, ove $I$ è un intervallo non vuoto di numeri naturali
-\footnote{$\{0\}$ per \texttt{Tuple1}, $\{0, 1\}$ per \texttt{Tuple2}, $\{0, 1, 2\}$ per \texttt{Tuple2}}
-
-\begin{example}
-Tuple come product type
-
-\begin{code}
-type Tuple1 = [string]
-type Tuple2 = [string, number]
-type Tuple3 = [string, number, boolean]
-\end{code}
-\end{example}
-
-e i record, ove $I$ è una collezione di label
-\footnote{$\{ "name", "age" \}$ per \texttt{Person}}
-
-\begin{example}
-Record come product type
-
-\begin{code}
-type Person = {
-  name: string,
-  age: number
-}
-\end{code}
-\end{example}
-
-\texttt{Tuple2} e \texttt{Person} sono isomorfi tra loro
-
-$$
-f: \texttt{Tuple2} \rightarrow \texttt{Person}
-$$
-
-$$
-f(\texttt{[name, age]}) = \texttt{\{ name, age  \}}
-$$
-
-$$
-f^{-1}: \texttt{Person} \rightarrow \texttt{Tuple2}
-$$
-
-$$
-f^{-1}(\texttt{\{ name, age  \}}) = \texttt{[name, age]}
-$$
-
-L'isomorfismo, almeno in una direzione, risulta evidente se si implementa \texttt{Person} con una classe
-
-\begin{code}
-class Person {
-  constructor(readonly name: string, readonly age: number) {}
-}
-\end{code}
-
-in cui \texttt{constructor} realizza la funzione $f$.
-
-Si può reificare l'isomorfismo costruendo una istanza di \texttt{Iso}
-
-\begin{example}
-Isomorfismo come valore
-
-\begin{code}
-const iso = new Iso<[string, number], Person>(
-  ([name, age]) => ({ name, age }),
-  ({ name, age }) => [name, age]
-)
-\end{code}
-\end{example}
-
-\paragraph{Perchè si chiamano product types?}
-
-Se indichiamo con $\|A\|$, detta \emph{cardinalità} o \emph{ordine} di $A$, il numero di elementi
-dell'insieme $A$ è facile convincersi che vale la seguente formula
-
-$$
-\|A \times B\| = \|A\| * \|B\|
-$$
-
-ovvero la cardinalità del prodotto cartesiano è il prodotto delle cadinalità.
-
-\begin{example}
-Calcolare il numero di abitanti di un product type
-
-\begin{code}
-type Hour = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12
-type Period = "AM" | "PM"
-type Clock = [Hour, Period]
-\end{code}
-
-Il tipo \texttt{Clock} ha $12 * 2 = 24$ abitanti.
-\end{example}
-
-\subsection{Sum types}
-
-Così come i product types sono analoghi ai prodotti cartesiani di insiemi, i sum types sono analoghi alle unioni di insiemi disgiunti
-
-\begin{code}
-type Action =
-  | { type: "INCREMENT" }
-  | { type: "DECREMENT" }
-\end{code}
-
-Product types e sum types possono essere mischiati e innestati
-
-\begin{example}
-Sum type e product type insieme
-
-\begin{code}
-export type Action =
-  | { type: "ADD_TODO"; text: string }
-  | {
-      type: "UPDATE_TODO"
-      id: number
-      text: string
-      completed: boolean
-    }
-  | { type: "DELETE_TODO"; id: number }
-\end{code}
-\end{example}
-
-Il tipo \texttt{Array<A>}, con una buona misura di fantasia, può essere interpretato come sum type
-
-\begin{code}
-type Array<A> = [] | [A] | [A, A] | [A, A, A] | ...
-\end{code}
-
-I sum type possono essere ricorsivi
-
-\begin{example}
-Linked lists
-
-\begin{code}
-type List<A> =
-  | { type: "Nil" }
-  | { type: "Cons", head: A, tail: List<A> }
-\end{code}
-\end{example}
-
-\begin{example}
-Binary trees
-
-\begin{code}
-type BinaryTree<A> =
-  | { type: "Leaf" }
-  | {
-      type: "Node"
-      left: BinaryTree<A>
-      value: A
-      right: BinaryTree<A>
-    }
-\end{code}
-\end{example}
-
-\paragraph{Perchè si chiamano sum types?}
-
-È facile convincersi che la cadinalità di un sum type è la somma delle cardinalità dei suoi membri
-
-$$
-\|A | B\| = \|A\| + \|B\|
-$$
-
-\begin{example}
-Calcolare il numero di abitanti di un sum type
-
-\begin{code}
-type Option<A> = { type: "None" } | { type: "Some"; value: A }
-\end{code}
-
-Il tipo \texttt{Option<boolean>} ha $1 + 2 = 3$ abitanti.
-\end{example}
-
-I sum type sono particolarmente utili per modellare record con campi dipendenti tra loro.
+https://github.com/gcanti/talks/blob/master/adt/adt.md
 
 \begin{exercise}
-Definire il tipo \texttt{JSON}
+Modellare il tipo \texttt{JSON}. Si può considerare un ADT?
 \end{exercise}
 
-\subsection{Exaustivity checking}
-
-Nel caso dei sum type TypeScript offre un servizio prezioso: controlla che ogni caso del sum type sia stato gestito.
-
-Se nella funzione \texttt{reducer} qui sotto non vengono gestiti tutti i casi contenuti in \texttt{Action} il compilatore ci avverte, così come
-ci avverte se il tipo \texttt{Action} viene cambiato, per esempio aggiungendo o togliendo un caso.
-
-\begin{example}
-Exaustivity checking in azione
-
-\begin{code}
-type Action =
-  | { type: "ADD_TODO"; text: string }
-  | {
-      type: "UPDATE_TODO"
-      id: number
-      text: string
-      completed: boolean
-    }
-  | { type: "DELETE_TODO"; id: number }
-
-interface Todo {
-  id: number
-  text: string
-  completed: boolean
-}
-
-interface State {
-  todos: Array<Todo>
-}
-
-declare const getNextId: (s: State) => number
-
-const reducer = (s: State, a: Action): State => {
-  switch (a.type) {
-    case "ADD_TODO":
-      return {
-        todos: [
-          ...s.todos,
-          { id: getNextId(s), text: a.text, completed: false }
-        ]
-      }
-    case "UPDATE_TODO":
-      return {
-        todos: s.todos.map(todo =>
-          (todo.id === a.id ? a : todo))
-      }
-    case "DELETE_TODO":
-      return {
-        todos: s.todos.filter(({ id }) => id !== a.id)
-      }
-  }
-}
-\end{code}
-\end{example}
-
-\begin{boxed}
-Cercate di non usare \texttt{default} in uno \texttt{switch} relativo ad sum type, altrimenti depotenziate l'exaustivity checking
-\end{boxed}
+\begin{exercise}
+Modellare un albero binario
+\end{exercise}
 
 \begin{exercise}
-Supponiamo di dover modellare la seguente struttura dati (chiamiamola \texttt{Selection})
+Modellare una struttura dati (chiamiamola \texttt{These}) che rappresenta alternativamente
+\begin{itemize}
+  \item un successo di tipo \texttt{A}
+  \item un errore bloccante di tipo \texttt{L}
+  \item un successo di tipo \texttt{A} e un errore non bloccante di tipo \texttt{L}\footnote{
+Tratto da https://package.elm-lang.org/packages/joneshf/elm-these/1.2.0/
 
-\begin{quote}
-una lista di utenti di cui uno è considerato la selezione corrente
-\end{quote}
+There are a few ways to interpret the both case:
 
-Un vostro collega propone questo modello
+\begin{itemize}
+  \item You can think of a computation that has a non-fatal error.
+  \item You can think of a computation that went as far as it could before erroring.
+  \item You can think of a computation that keeps track of errors as it completes.
+\end{itemize}
+  }
+\end{itemize}
+\end{exercise}
 
-\begin{code}
-interface User {
-  name: string
-}
+\begin{exercise}
+Definire una funzione \texttt{match} che simuli il pattern matching per \texttt{These}
+\end{exercise}
 
-interface Selection {
-  items: Array<User> // <= la lista degli utenti
-  current?: number   // <= l'indice della selezione corrente,
-                     // può essere undefined
-}
-\end{code}
-
-Avete una proposta migliore?
+\begin{exercise}
+Tennis Kata: modellare il punteggio di un game
 \end{exercise}
 
 \newpage
@@ -1530,7 +1603,12 @@ const inverse = (x: number): number => {
 
 ma così la funzione non sarebbe più da considerarsi pura
 \footnote{Le eccezioni sono considerate un side effect inaccettabile perchè modificano la normale esecuzione del codice
-e violano la trasparenza referenziale}.
+e violano la \textbf{trasparenza referenziale}
+
+\begin{quote}
+An expression is said to be \emph{referentially transparent} if it can be replaced with its corresponding value without changing the program's behavior
+\end{quote}
+}.
 
 Un'altra possibile soluzione è restituire \texttt{null}
 
@@ -1857,248 +1935,17 @@ export const attempt = <L, A>(
 \end{example}
 
 \newpage
-\section{Make impossible states irrepresentable}
-
-Vediamo un'altra tecnica per ottenere type safety, questa volta addirittura per costruzione.
-
-Sappiamo che la funzione \texttt{head} è parziale
-
-\begin{code}
-const head = <A>(xs: Array<A>): A => xs[0]
-\end{code}
-
-e che per renderla totale occorre modificare il codominio
-
-\begin{code}
-const head = <A>(xs: Array<A>): Option<A> =>
-  xs.length > 0 ? some(xs[0]) : none
-\end{code}
-
-Tuttavia questo ci obbliga ad usare \texttt{Option}.
-
-Un'altra opzione è quella di cambiare il dominio invece che estendere il codominio
-
-\subsection{Il tipo \texttt{NonEmptyArray}}
-
-\begin{code}
-class NonEmptyArray<A> {
-  constructor(readonly head: A, readonly tail: Array<A>) {}
-}
-
-const head = <A>(fa: NonEmptyArray<A>): A => fa.head
-\end{code}
-
-\subsection{Il tipo \texttt{Zipper}}
-
-Supponiamo di dover modellare la seguente struttura dati
+\section{Finite state machines}
 
 \begin{quote}
-una lista non vuota di elementi di cui uno è considerato la selezione corrente
+In general, a finite-state machine can be described as an abstract machine with \textbf{a finite set of states},
+being is in one state at a time. \textbf{Events trigger state transitions}; that is, the machine changes from being in one
+state to being in another state. The machine defines a set of \textbf{legal transitions}, often expressed as \textbf{associations
+from the current state and an event to another state}.
+\footnote{https://wickstrom.tech/finite-state-machines/2017/11/10/finite-state-machines-part-1-modeling-with-haskell.html}
 \end{quote}
 
-Un modello semplice potrebbe essere questo
-
-\begin{code}
-type Selection<A> = {
-  items: Array<A>
-  current: number
-}
-\end{code}
-
-Tuttavia questo modello ha diversi difetti
-
-\begin{itemize}
-  \item la lista può essere vuota
-  \item l'indice può essere out of range
-\end{itemize}
-
-Possiamo migliorare il modello usando \texttt{NonEmptyArray}
-
-\begin{code}
-type Selection<A> = {
-  items: NonEmptyArray<A>
-  current: number
-}
-\end{code}
-
-Tuttavia l'indice può essere ancora out of range.
-
-Uno \texttt{Zipper} invece è un modello perfetto e type safe per il problema
-
-\begin{code}
-type Zipper<A> = {
-  prev: Array<A>
-  current: A
-  next: Array<A>
-}
-\end{code}
-
-\newpage
-\subsection{Slaying a UI Antipattern with TypeScript}
-
-\paragraph{The problem.}
-
-This problem is presented in "Slaying a UI Antipattern in Fantasyland"\footnote{https://medium.com/javascript-inside/slaying-a-ui-antipattern-in-fantasyland-907cbc322d2a}
-by Stefan Oestreicher which in turn is based on "How Elm Slays a UI Antipattern"\footnote{http://blog.jenkster.com/2016/06/how-elm-slays-a-ui-antipattern.html}
-by Kris Jenkins.
-
-The problem they present is a very common one. You are loading a list of things but instead of showing a loading indicator
-you just see zero items. In JavaScript your data model may look like this
-
-\begin{code}
-{
-  loading: true,
-  items: []
-}
-\end{code}
-
-But of course it's easy to forget to check the loading flag. What about using \texttt{null} in order to represent the "not loaded" case?
-Both Stefan and Kris wisely discourage it
-
-\begin{quote}
-Long experience will have taught you that setting a property to null may be correct, but it's just asking for runtime exceptions
-\end{quote}
-
-Fortunately, this concern evaporates when using TypeScript
-
-\begin{code}
-type Model = {
-  things: Array<Thing> | undefined | null
-}
-\end{code}
-
-Now if you try to use an instance of this model incorrectly
-
-\begin{code}
-const SomeView = ({ things }: Model) => {
-  return <div>
-    { things.map(thing => String(thing)) }
-  </div>
-}
-\end{code}
-
-TypeScript will complain
-
-\begin{code}
-[ts] Object is possibly 'null' or 'undefined'.
-\end{code}
-
-However we can go even further, as Kris says "we can be much more sophisticated".
-
-\paragraph{The solution.}
-
-HTTP requests have one of four states
-
-\begin{itemize}
-  \item we haven't asked yet
-  \item w've asked, but we haven't got a response yet
-  \item we got a response, but it was an error
-  \item we got a response, and it was the data we wanted
-\end{itemize}
-
-With TypeScript we can easily define a type that represents these four states
-
-\begin{code}
-type RemoteData<E, D> =
-  | { type: "NotAsked" }
-  | { type: "Loading" }
-  | { type: "Failur"; error: E }
-  | { type: "Success"; data: D }
-
-type Model = {
-  things: RemoteData<HttpError, Array<Thing>>
-}
-\end{code}
-
-As Kris observes
-
-\begin{quote}
-The nice thing about this data model is, the type checker will now force you to write the correct UI code.
-It will keep track of the possibility of “things not loaded” and errors, and force you to handle them all in the UI.
-\end{quote}
-
-\begin{code}
-// will raise: Property 'data' does not exist
-// on type 'RemoteData<string, Thing[]>'
-const SomeView = ({ things }: Model) => {
-  return <div>{things.data.map(thing => {})}</div>
-}
-\end{code}
-
-TypeScript will force you to handle all cases
-
-\begin{code}
-const SomeView = ({ things }: Model) => {
-  switch (things.type) {
-    case "NotAsked":
-      return (
-        <div>Please press the button to load the things</div>
-      )
-    case "Loading":
-      return <div>Loading things...</div>
-    case "Failure":
-      return <div>An error has occurred {things.error}</div>
-    case "Success":
-      return <div>{things.data.map(thing => { ... })}</div>
-  }
-}
-\end{code}
-
-Or, using a more functional style, let's define a \texttt{fold} function that can be re-utilised in more use cases
-
-\begin{code}
-function fold<E, D, R>(
-  rd: RemoteData<E, D>,
-  fs: {
-    NotAsked: () => R
-    Loading: () => R
-    Failure: (error: E) => R
-    Success: (data: D) => R
-  }
-): R {
-  switch (rd.type) {
-    case "NotAsked":
-      return fs.NotAsked()
-    case "Loading":
-      return fs.Loading()
-    case "Failure":
-      return fs.Failure(rd.error)
-    case "Success":
-      return fs.Success(rd.data)
-  }
-}
-\end{code}
-
-Now \texttt{SomeView} can be defined as
-
-\begin{code}
-const SomeView = ({ things }: Model) =>
-  fold(
-    things,
-    {
-      NotAsked: () => (
-        <div>Please press the button to load the things</div>
-      ),
-      Loading: () => <div>Loading things...</div>,
-      Failure: error => <div>An error has occurred {error}</div>,
-      Success: data => <div>{data.map(thing => {})}</div>
-    }
-  )
-\end{code}
-
-\subsection{Finite state machines}
-
-\begin{quote}
-First, we should have a clear understanding of what a finite-state machine is. There are many variations and definitions,
-and I’m sure you, especially if coming from an engineering background, have some relation to state machines.
-
-In general, a finite-state machine can be described as an abstract machine with a finite set of states,
-being is in one state at a time. Events trigger state transitions; that is, the machine changes from being in one
-state to being in another state. The machine defines a set of legal transitions, often expressed as associations
-from the current state and an event to another state.\footnote{https://wickstrom.tech/finite-state-machines/2017/11/10/finite-state-machines-part-1-modeling-with-haskell.html}
-\end{quote}
-
-Gli stati e gli eventi possono essere modellati con dei sum type, rispettivamente \texttt{S} e \texttt{E}.
+Gli stati e gli eventi, chiamiamoli rispettivamente \texttt{S} e \texttt{E}, possono essere modellati con dei sum type.
 
 Il modello di una finite state machine è allora
 
@@ -2106,14 +1953,14 @@ Il modello di una finite state machine è allora
 type PureFSM<S, E> = (s: S, e: E) => S
 \end{code}
 
-Siccome però è probabile che per produrre il nuovo stato occorra generare dei side effect, un modello più realistico è il seguente
+Siccome però è probabile che per produrre il nuovo stato occorra eseguire dei side effect, un modello più realistico è il seguente
 
 \begin{code}
 type FSM<S, E> = (s: S, e: E) => Promise<S>
 \end{code}
 
 \begin{exercise}
-Modellare il seguente grafo (shopping cart checkout) usando degli ADT sia per gli stati sia per gli eventi
+Modellare la seguente macchina a stati finiti (shopping cart checkout) usando degli ADT sia per gli stati sia per gli eventi
 
 \[
 \xymatrixrowsep{3cm}
@@ -2148,7 +1995,7 @@ const map = <A, B>(
 ): Array<B> => fa.map(f)
 
 // map: <string, number>
-map(s => s.length, ['foo'])
+map(s => s.length, ["foo"])
 \end{code}
 
 se consideriamo la versione curried di \texttt{map} le cose cambiano
@@ -2159,7 +2006,7 @@ const mapCurried = <A, B>(f: (a: A) => B) => (
 ): Array<B> => fa.map(f)
 
 // mapCurried: <{}, any>
-mapCurried(s => s.length)(['foo'])
+mapCurried(s => s.length)(["foo"])
 // error: Property 'length' does not exist on type '{}'
 \end{code}
 
@@ -2169,13 +2016,13 @@ Lo sviluppatore perciò deve correggere la situazione aggiungendo una type annot
 \begin{code}
 // mapCurried: mapCurried: <string, number>(f:
 // (a: string) => number) => (fa: string[]) => number[]
-mapCurried((s: string) => s.length)(['foo'])
+mapCurried((s: string) => s.length)(["foo"])
 \end{code}
 
 oppure specificando i type parameter
 
 \begin{code}
-mapCurried<string, number>(s => s.length)(['foo'])
+mapCurried<string, number>(s => s.length)(["foo"])
 \end{code}
 
 È però possibile migliorare la type inference scambiando l'ordine dei gruppi di argomenti
@@ -2187,37 +2034,39 @@ const mapCurriedFlipped = <A>(fa: Array<A>) => <B>(
 
 // mapCurriedFlipped: <string>(fa: string[]) =>
 // <B>(f: (a: string) => B) => B[]
-mapCurriedFlipped(['foo'])(s => s.length)
+mapCurriedFlipped(["foo"])(s => s.length)
 \end{code}
 \end{example}
 
 \newpage
 \section{Simulazione dei tipi nominali}
 
-È possibile simulare i tipi nominali aggiungendo una proprietà fittizia (detta \emph{phantom property}) che non viene mai valorizzata
-a runtime ma che viene comunque presa in considerazione dal compilatore.
+È possibile simulare i tipi nominali aggiungendo una proprietà privata fittizia (detta \emph{phantom property}) che non viene mai valorizzata
+a runtime ma che viene comunque presa in considerazione dal type checker.
 
 \begin{example}
 Implementazione con le classi
 
 \begin{code}
-class A {
-  readonly type!: "A"
+class USD {
+  private readonly brand!: symbol
+  constructor(readonly value: number) {}
 }
 
-class B {
-  readonly type!: "B"
+class EUR {
+  private readonly brand!: symbol
+  constructor(readonly value: number) {}
 }
 
-declare function f(a: A): void
+declare function f(usd: USD): void
 
-f(new A())
-f(new B())
+f(new USD(1))
+f(new EUR(1))
 /*
 [ts]
-Argument of type 'B' is not assignable to parameter of type 'A'.
-  Types of property '_tag' are incompatible.
-    Type '"B"' is not assignable to type '"A"'.
+Argument of type 'EUR' is not assignable to parameter
+of type 'USD'. Types have separate declarations of a
+private property 'brand'
 */
 \end{code}
 \end{example}
@@ -2243,7 +2092,7 @@ Supponiamo di volere rappresentare il tipo "numero diverso da zero", possiamo im
 
 \begin{code}
 class NonZero {
-  readonly type: "NonZero" = "NonZero"
+  private readonly brand!: symbol
   constructor(readonly value: number) {}
 }
 \end{code}
@@ -2251,7 +2100,7 @@ class NonZero {
 Il problema è che non ho controllo sulla creazione
 
 \begin{code}
-const x = new NonZero(0)
+const x = new NonZero(0) // oops!
 \end{code}
 
 Posso allora definire uno \emph{smart constructor}, ovvero una funzione che ha come codominio \texttt{Option<NonZero>} e che
@@ -2262,7 +2111,7 @@ export const create = (n: number): Option<NonZero> =>
   n === 0 ? none : some(new NonZero(n))
 \end{code}
 
-Nella pratica uno smart constructor rappresenta un controllo a runtime a livello dei tipi.
+Nella pratica uno smart constructor trasporta un controllo a runtime a livello dei tipi.
 
 Si noti che \texttt{NonZero} non è esportato mentre dal modulo è esportata la sola funzione \texttt{create}, in questo
 modo si mantiene il controllo totale sulla creazione di istanze di \texttt{NonZero} che non sempre valide.
@@ -2280,7 +2129,7 @@ Si può rimediare con il seguente workaround
 
 \begin{code}
 class NonZero {
-  readonly type: "NonZero" = "NonZero"
+  private readonly brand!: symbol
   static create(n: number): Option<NonZero> {
     return n === 0 ? none : some(new NonZero(n))
   }
@@ -2291,32 +2140,32 @@ class NonZero {
 const inverse = (x: NonZero): number => 1 / x.value
 \end{code}
 
-In questo modo spesso si spingono i controlli a runtime là dove dovrebbe essere il loro posto naturale: ai confini del sistema,
+In questo modo si possono spingere i controlli a runtime là dove dovrebbe essere il loro posto naturale: ai confini del sistema,
 dove vengono fatte tutte le validazioni dell'input.
 
 \newpage
 \section{Phantom types}
 
-A \emph{phantom type} is a parametrised type whose parameters do not all appear on the right-hand side of its definition, e.g
+Un \emph{phantom type} è un tipo polimorfico i cui type parameter non appaiono tutti alla destra della sua definizione
 
 \begin{code}
 type Phantom<M> = { value: number }
 \end{code}
 
-Here \texttt{Phantom} is a phantom type and \texttt{M} is a \emph{phantom type parameter},
-because the \texttt{M} parameter doesn't appear in its implementation.
+Qui \texttt{Phantom} è un phantom type e \texttt{M} è un \emph{phantom type parameter},
+dato che il parametro \texttt{M} non appare nella sua implementazione.
 
-Since TypeScript is a structural type system we must choose a different encoding
+Dato che TypeScript ha un type system strutturale dobbiamo però scegliere una diversa implementazione.
 
 \begin{exercise}
 Perchè?
 \end{exercise}
 
-e.g. using a \texttt{class} and a phantom property
+per esempio una classe con una phantom property
 
 \begin{code}
 class Phantom<M> {
-  readonly M!: M
+  private readonly M!: M
   constructor(readonly value: number) {}
 }
 \end{code}
@@ -2341,7 +2190,7 @@ Let's start with a few definitions
 
 \begin{code}
 class Data<M> {
-  readonly M!: M
+  private readonly M!: M
   constructor(readonly input: string) {}
 }
 \end{code}
@@ -2366,10 +2215,10 @@ export type Unvalidated = "Unvalidated"
 export type Validated = "Validated"
 export type State = Unvalidated | Validated
 
-declare function myvalidation(s: string): boolean
+const isNonEmptyString = (s: string): boolean => s.length > 0
 
 export class Data<M extends State> {
-  readonly M!: M
+  private readonly M!: M
   private constructor(readonly input: string) {}
 
   /**
@@ -2386,8 +2235,8 @@ export class Data<M extends State> {
   static validate(
     data: Data<Unvalidated>
   ): Option<Data<Validated>> {
-    return myvalidation(data.input)
-      ? some(data as any)
+    return isNonEmptyString(data.input)
+      ? some(new Data(data.input))
       : none
   }
 }
@@ -2405,7 +2254,7 @@ Now let's try to use the library incorrectly
 \begin{code}
 import { Data, use } from './data'
 
-const data = Data.make('hello')
+const data = Data.make("hello")
 
 use(data) // called without validating the input
 \end{code}
@@ -2422,7 +2271,7 @@ Argument of type 'Data<"Unvalidated">' is not assignable
 If you call \texttt{validate} instead
 
 \begin{code}
-const data = Data.make('hello')
+const data = Data.make("hello")
 Data.validate(data).map(use)
 \end{code}
 
@@ -2461,112 +2310,10 @@ or else we get a compile-time error.
 
 \subsection{Finite state machines}
 
-Vediamo un'altra implementazione di una macchina a stati finiti.
+Vediamo come i phantom type possano essere sfruttati per definire una macchina a stati finiti.
 
-L'implementazione si basa su questi due principi
-
-\begin{itemize}
-\item gli stati sono rappresentati da una struttura dati \texttt{Node} contenente un valore e una indicazione dello stato corrente
-\item gli eventi / transizioni sono rappresentate da funzioni
-\end{itemize}
-
-Si consideri la seguente macchina a stati finiti
-
-\[
-\xymatrixrowsep{3cm}
-\xymatrixcolsep{3cm}
-\xymatrix{
-  S1 \ar[r]^{len} & S2 \ar@(ul,ur)^{double} \ar@(dl,dr)_{inc} \ar[r]^{gt10} & S3 \\
-}
-\]
-
-\begin{code}
-type State = "S1" | "S2" | "S3"
-
-class Node<S extends State, A> {
-  readonly S!: S
-  constructor(readonly value: A) {}
-}
-
-const start = (value: string): Node<"S1", string> =>
-  new Node(value)
-\end{code}
-
-Ora definiamo una operazione per ogni arco del grafo
-
-\begin{code}
-const len = (
-  input: Node<"S1", string>
-): Node<"S2", number> => new Node(input.value.length)
-
-const double = (
-  input: Node<"S2", number>
-): Node<"S2", number> => new Node(input.value * 2)
-
-const inc = (
-  input: Node<'S2', number>
-): Node<'S2', number> => new Node(input.value + 1)
-
-const gt10 = (
-  input: Node<"S2", number>
-): Node<"S3", boolean> => new Node(input.value > 10)
-\end{code}
-
-La corretta successione delle operazioni ora è assicurata staticamente
-
-\begin{code}
-double(start("foo")) // error
-double(len(start("foo"))) // ok
-\end{code}
-
-Volendo le operazioni possono anche essere definite come metodi, il che rende più comodo concatenarle,
-sfruttando la possibilità di annotare \texttt{this}.
-
-Inoltre posso imporre uno stato iniziale rendendo il costruttore privato
-
-\begin{code}
-class Node2<S extends State, A> {
-  readonly S!: S
-  static start(value: string): Node2<"S1", string> {
-    return new Node2(value)
-  }
-  private constructor(private readonly value: A) {}
-  len(this: Node2<"S1", string>): Node2<"S2", number> {
-    return new Node2(this.value.length)
-  }
-  double(this: Node2<"S2", number>): Node2<"S2", number> {
-    return new Node2(this.value * 2)
-  }
-  inc(this: Node2<"S2", number>): Node2<"S2", number> {
-    return new Node2(this.value + 1)
-  }
-  gt10(this: Node2<"S2", number>): Node2<"S3", boolean> {
-    return new Node2(this.value > 10)
-  }
-}
-\end{code}
-
-Ancora una volta la corretta successione delle operazioni è assicurata staticamente
-
-\begin{code}
-Node2.start("foo").double()
-// static error: Type '"S1"' is not assignable to type '"S2"'
-
-Node2.start("foo")
-  .len()
-  .double() // ok
-\end{code}
-
-Posso anche richiedere un esplicito stato finale
-
-\begin{code}
-const final: Node2<"S3", boolean> = Node2.start("foo")
-  .len()
-  .gt10()
-\end{code}
-
-\begin{exercise}
-Modellare il seguente grafo (operazioni su una \texttt{Door}), mantenendo il conteggio delle
+\begin{example}
+Modellare la seguente macchina a stati finiti (operazioni su una \texttt{Door}), mantenendo il conteggio delle
 volte in cui il campanello è stato suonato
 
 \[
@@ -2576,10 +2323,109 @@ volte in cui il campanello è stato suonato
   Closed \ar@/_0.5cm/[r]_{\texttt{open}} \ar@(ul,ur)^{\texttt{ring}} & Open \ar@/_0.5cm/[l]_{\texttt{close}} \\
 }
 \]
-\end{exercise}
+
+L'implementazione si basa su questi due principi
+
+\begin{itemize}
+\item gli stati sono rappresentati da una struttura dati \texttt{Door} contenente il conteggio e una indicazione dello stato corrente
+\item le transizioni sono rappresentate da funzioni
+\end{itemize}
+
+\begin{code}
+type Open = 'Open'
+type Closed = 'Closed'
+type State = Open | Closed
+
+class Door<S extends State> {
+  private readonly S!: S
+  constructor(readonly count: number) {}
+}
+
+const start = (): Door<Closed> => new Door(0)
+\end{code}
+
+Ora definiamo una operazione per ogni arco del grafo
+
+\begin{code}
+const close = (door: Door<Open>): Door<Closed> =>
+  new Door(door.count)
+
+const open = (door: Door<Closed>): Door<Open> =>
+  new Door(door.count)
+
+const ring = (door: Door<Closed>): Door<Closed> =>
+  new Door(door.count + 1)
+\end{code}
+
+La corretta successione delle operazioni ora è assicurata staticamente
+
+\begin{code}
+close(start()) // error
+
+ring(open(start())) // error
+
+open(ring(close(open(ring(start()))))) // ok
+\end{code}
+\end{example}
+
+\begin{example}
+Volendo le operazioni possono anche essere definite come metodi, il che rende più comodo concatenarle.
+
+Per farlo possiamo sfruttare la possibilità di annotare \texttt{this}.
+
+Inoltre posso imporre uno stato iniziale rendendo il costruttore privato
+
+\begin{code}
+class Door<S extends State> {
+  private readonly S!: S
+  static start(): Door<Closed> {
+    return new Door(0)
+  }
+  private constructor(readonly count: number) {}
+  open(this: Door<Closed>): Door<Open> {
+    return new Door(this.count)
+  }
+  close(this: Door<Open>): Door<Closed> {
+    return new Door(this.count)
+  }
+  ring(this: Door<Closed>): Door<Closed> {
+    return new Door(this.count + 1)
+  }
+}
+\end{code}
+
+Ancora una volta la corretta successione delle operazioni è assicurata staticamente
+
+\begin{code}
+Door.start().close() // error
+
+Door.start()
+  .open()
+  .ring() // error
+
+Door.start()
+  .ring()
+  .open()
+  .close()
+  .ring()
+  .open() // ok
+\end{code}
+
+Posso anche richiedere un esplicito stato finale
+
+\begin{code}
+const x: Door<Closed> = Door.start()
+  .ring()
+  .open() // error
+const y: Door<Closed> = Door.start()
+  .ring()
+  .open()
+  .close() // ok
+\end{code}
+\end{example}
 
 \begin{exercise}
-Modellare il seguente grafo (operazioni su una \texttt{Response})
+Modellare la seguente macchina a stati finiti (ciclo di vita di una \texttt{Response} di \texttt{express})
 
 \[
 \xymatrixrowsep{3cm}
@@ -2589,9 +2435,15 @@ Modellare il seguente grafo (operazioni su una \texttt{Response})
   ResponseEnded & BodyOpen \ar[l]^{\texttt{send}} \\
 }
 \]
+
+L'obbiettivo principale è evitare staticamente che vengano aggiunti degli header una volta che si è mandato il body.
 \end{exercise}
 
-\subsection{Un \texttt{EventEmitter} type safe}
+\begin{exercise}
+Rendere type-safe il metodo \texttt{status} di \texttt{Middleware}
+\end{exercise}
+
+\subsection{Un \texttt{EventEmitter} type-safe}
 
 Supponiamo di dover modellare un \texttt{EventEmitter}
 
@@ -2606,28 +2458,31 @@ Questo modello è insoddisfacente
 
 \begin{itemize}
   \item non c'è relazione tra l'evento e i dati associati
-  \item non c'è relazione tra l'emissione dell'evento e i relativi listener
+  \item non c'è relazione tra l'evento e il relativo listener
 \end{itemize}
 
 Si può rimediare definendo un phantom type \texttt{Event} che immagazzina il tipo di dato relativo ad un evento
 
 \begin{code}
 class Event<D> {
-  readonly D!: D
+  private readonly D!: D
   constructor(readonly name: string) {}
-}
-
-interface EventEmitter {
-  emit: <D>(evt: Event<D>, data: D) => void
-  listen: <D>(evt: Event<D>, handler: (data: D) => void) => void
 }
 
 const evt1 = new Event<string>('evt1')
 const evt2 = new Event<number>('evt2')
 
+interface EventEmitter {
+  emit: <D>(evt: Event<D>, data: D) => void
+  listen: <D>(
+    evt: Event<D>,
+    handler: (data: D) => void
+  ) => void
+}
+
 declare const ee: EventEmitter
 
-ee.emit(evt1, 'foo') // ok
+ee.emit(evt1, "foo") // ok
 ee.emit(evt1, 1) // static error
 ee.emit(evt2, 1) // ok
 
@@ -2640,7 +2495,7 @@ ee.listen(evt2, data => console.log(data * 2))
 I phantom type sono utili anche per manipolare mappe i cui valori sono di tipo eterogeneo
 
 \begin{code}
-type EventMap = { [key: string]: Event<any> }
+type EventMap = { [key: string]: Event<unknown> }
 
 const map = {
   evt1,
@@ -2650,7 +2505,20 @@ const map = {
 type Handlers<EM extends EventMap> = {
   [K in keyof EM]: (data: EM[K]["D"]) => void
 }
+\end{code}
 
+Si noti che per poter accedere al campo \texttt{D} devo modificare la sua visibilità nella definizione di \texttt{Event}
+
+\begin{code}
+class Event<D> {
+  readonly D!: D // non più privato
+  constructor(readonly name: string) {}
+}
+\end{code}
+
+I tipi dei diversi eventi possono ora essere estratti in modo indipendente
+
+\begin{code}
 type MyHandlers = Handlers<typeof map>
 /* same as
 type MyHandlers = {
@@ -2663,7 +2531,8 @@ type MyHandlers = {
 \newpage
 \section{Newtypes}
 
-Non sempre i tipi riescono a modellare in modo soddisfacente un sistema, si consideri la seguente funzione
+Non sempre i tipi predefiniti, in particolare quelli primitivi, riescono a modellare in modo soddisfacente un sistema,
+si consideri la seguente funzione
 
 \begin{code}
 declare function getPost(a: string, b: string): string
@@ -2695,12 +2564,7 @@ ma il type system vede ancora \texttt{(string, string) -> string} (e anche voi i
 
 Posso per errore scambiare l'ordine di \texttt{PostId} e \texttt{FacebookToken} essendo tutte e due stringhe, il type checker non mi avverte.
 
-\begin{quote}
-A common programming practice is to define a type whose representation is identical to an existing one but which
-has a separate identity in the type system.
-\end{quote}
-
-Un esempio tipico sono i valori espressi in una qualche unità di misura
+Un altro esempio tipico sono i valori espressi in una qualche unità di misura
 
 \begin{code}
 type Celsius = number
@@ -2709,24 +2573,31 @@ type Fahrenheit = number
 const celsius2fahrenheit = (celsius: Celsius): Fahrenheit =>
   celsius * 1.8 + 32
 
-const c: Celsius = 1
+const cel: Celsius = 1
 
-celsius2fahrenheit(c)
+celsius2fahrenheit(cel)
 
-const f: Fahrenheit = 33.8
+const far: Fahrenheit = 33.8
 
-celsius2fahrenheit(f) // oops...
+celsius2fahrenheit(far) // oops...
 \end{code}
 
 I type alias danno qualche beneficio in termini di documentazione ma non offrono nessun vantaggio dal punto di vista della type safety.
 
+\begin{quote}
+A common programming practice is to define a type whose representation is identical to an existing one but which
+has a separate identity in the type system.
+\end{quote}
+
+Tali tipi sono comunemente chiamati \emph{newtype}.
+
 \subsection{Phantom type wrapper}
 
-Una soluzione è quella di creare dei wrapper simulando i tipi nominali
+Come abbiamo già visto una possibile soluzione è quella di creare dei wrapper simulando i tipi nominali
 
 \begin{code}
 class Newtype<M, A> {
-  readonly M!: M
+  private readonly M!: M
   constructor(readonly value: A) {}
 }
 
@@ -2736,20 +2607,20 @@ class Fahrenheit extends Newtype<"Fahrenheit", number> {}
 const celsius2fahrenheit = (celsius: Celsius): Fahrenheit =>
   new Fahrenheit(celsius.value * 1.8 + 32)
 
-const f = new Fahrenheit(33.8)
+const far = new Fahrenheit(33.8)
 
-celsius2fahrenheit(f)
+celsius2fahrenheit(far)
 // static error: Type '"Fahrenheit"' is not assignable
 // to type '"Celsius"'
 \end{code}
 
-Un \texttt{newtype} tuttavia ha la caratteristica di \emph{non modificare la rappresentazione a runtime} cosa che chiaramente
+Un "vero" \textbf{newtype} tuttavia ha la caratteristica di \emph{non modificare la rappresentazione a runtime} cosa che chiaramente
 non succede con un wrapper. È possibile implementare in TypeScript un nozione equivalente?
 
 \subsection{Implementazione tramite \texttt{Iso}}
 
-Dato che newtype di un tipo \texttt{A} è \emph{isomorfo} ad \texttt{A} possiamo usare un \texttt{Iso} per passare da uno
-all'altro.
+Dato che un newtype \texttt{S} basato su tipo \texttt{A} è \emph{isomorfo} ad \texttt{A} possiamo usare un
+\texttt{Iso} per passare da uno all'altro.
 
 \begin{code}
 interface Newtype<M, A> {
@@ -2773,11 +2644,11 @@ interface Fahrenheit extends Newtype<"Fahrenheit", number> {}
 const fahrenheitIso = iso<Fahrenheit>()
 
 const celsius2fahrenheit = (celsius: Celsius): Fahrenheit =>
-  fahrenheitIso.from(celsiusIso.to(celsius) * 1.8 + 32)
+  fahrenheitIso.wrap(celsiusIso.unwrap(celsius) * 1.8 + 32)
 
-const f: Fahrenheit = fahrenheitIso.from(33.8)
+const far: Fahrenheit = fahrenheitIso.from(33.8)
 
-celsius2fahrenheit(f)
+celsius2fahrenheit(far)
 // static error: Type '"Fahrenheit"' is not
 // assignable to type '"Celsius"'
 \end{code}
@@ -2786,11 +2657,16 @@ Sfruttando il subtyping è possible codificare comportamenti interessanti
 
 \begin{code}
 interface NonZero
-  extends Newtype<{ NonZero: true }, number> {}
-interface Positive
-
   extends Newtype<
-      { NonZero: true; Positive: true },
+      { readonly NonZero: unique symbol },
+      number
+    > {}
+
+interface Positive
+  extends Newtype<
+      NonZero['M'] & {
+        readonly Positive: unique symbol
+      },
       number
     > {}
 
@@ -2800,12 +2676,24 @@ declare function mult(a: Positive, b: Positive): Positive
 declare const nonZero: NonZero
 declare const positive: Positive
 
-inverse(nonZero)
-inverse(positive)
+inverse(nonZero) // ok
+inverse(positive) // ok
 mult(positive, nonZero)
 // error: Property 'Positive' is missing
-// in type '{ NonZero: true; }'
+// in type '{ readonly NonZero: unique symbol; }'
 \end{code}
+
+\begin{exercise}
+Definire \texttt{Integer} e \texttt{PositiveInteger}
+\end{exercise}
+
+\begin{exercise}
+È possibile definire un \texttt{Iso} per \texttt{Positive}?
+\end{exercise}
+
+\begin{exercise}
+Definire delle funzioni di conversione tra \texttt{number} e il \emph{raffinamento} \texttt{Positive}
+\end{exercise}
 
 \newpage
 \section{Validazione a runtime}
@@ -2877,94 +2765,5 @@ Le funzioni sono \textbf{controvarianti} in input e \textbf{covarianti} in outpu
 }
 \]
 
-\newpage
-\section{React}
-
-\subsection{Default props}
-
-\subsubsection{Il problema}
-
-\subsubsection{Una soluzione}
-
-\begin{code}
-// default props
-type DP = { foo: string }
-
-// non default props
-type NDP = { bar: number; baz: boolean }
-
-class MyComponent extends React.Component<DP & NDP> {
-  // type-checked defaultProps
-  static defaultProps: DP = { foo: 'foo' }
-
-  render() {
-    // default props appear as required within the component
-    const { foo, bar, baz } = this.props
-    return (
-      <div>
-        {foo.trim()} {baz ? bar * 2 : 0}
-      </div>
-    )
-  }
-}
-
-// make default props optional
-default MyComponent as React.ComponentClass<
-  Partial<DP> & NDP
->
-\end{code}
-
-\paragraph{Features}
-
-\begin{itemize}
-  \item the value \texttt{defaultProps} is type-checked
-  \item default props appear as required within the component but optional to the consumer
-  \item if you forget the last cast the result is even more type-safe and the fix is backward compatible
-\end{itemize}
-
-\subsection{Componenti polimorfiche}
-
-Se si usa JSX le componenti polimorfiche sono supportate solo se sono implementate tramite funzioni (stateless components).
-Per le componenti definite come classi un workaround possibile è la specializzazione prima dell'utilizzo. In quest'ultimo caso
-di consiglia di aggiungere un default \texttt{never} ai type parameter per evitare un utilizzo non corretto della componente
-
-\begin{code}
-interface Props<T> {
-  a: T
-  b: T[]
-}
-
-declare const Comp1: <T>(
-  props: Props<T>
-) => React.ReactElement<any>
-
-declare class Comp2<T> extends React.Component<Props<T>> {
-  render(): React.ReactElement<any>
-}
-
-// specializzazione
-declare class MyComp2 extends Comp2<number> {}
-
-const props = {
-  a: '',
-  b: [2]
-}
-;<Comp1 {...props} /> // error
-;<Comp2 {...props} /> // no error
-
-// specializzazione
-declare class MyComp2 extends Comp2<number> {}
-
-;<MyComp2 {...props} /> // error
-
-// usare `never` come default per evitare un cattivo uso
-declare class Comp3<T = never> extends React.Component<
-  Props<T>
-> {
-  render(): React.ReactElement<any>
-}
-
-;<Comp3 {...props} /> // error
-\end{code}
 
 \end{document}

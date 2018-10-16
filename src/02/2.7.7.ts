@@ -4,7 +4,11 @@
 
 */
 
-export declare function set(k: never, v: never, o: never): never
+export declare function set(
+  k: string,
+  v: unknown,
+  o: unknown
+): unknown
 
 // tests
 

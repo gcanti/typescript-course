@@ -14,3 +14,5 @@ npm install
 ```sh
 npm test -- src/<file>
 ```
+
+**Nota**. Le soluzioni fornite in questo repository costituiscono solo un punto di referimento, in generale **gli esercizi possono ammettere più di una soluzione corretta**.

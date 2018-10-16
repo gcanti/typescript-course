@@ -1,6 +1,6 @@
 /*
 
-  Esercizio: ricavare un record di predicati da un record
+  Esercizio: derivare un record di predicati dalla seguente interfaccia
 
 */
 
@@ -9,8 +9,6 @@ interface X {
   b: number
   c: boolean
 }
-
-type Predicate<A> = (a: A) => boolean
 
 type AsPredicates<O> = never
 

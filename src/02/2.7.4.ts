@@ -4,7 +4,7 @@
 
 */
 
-export declare function get(k: never, o: never): never
+export declare function get(key: string, obj: unknown): unknown
 
 // tests
 

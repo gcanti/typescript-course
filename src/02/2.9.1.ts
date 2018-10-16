@@ -1,7 +1,7 @@
 /*
 
-  Esercizio: generalizzare `getName` in modo che lavori con qualsiasi record
-  che abbia una proprietà `name`, anche se non è una stringa
+  Esercizio: generalizzare `getName` in modo che lavori con qualsiasi tipo
+  che abbia una proprietà `name`, indipendentemente dal suo tipo
 
 */
 

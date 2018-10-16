@@ -24,11 +24,17 @@ export class NoCard {
 }
 export class CardSelected {
   type: 'CardSelected' = 'CardSelected'
-  constructor(readonly items: NonEmptyArray<Item>, readonly card: Card) {}
+  constructor(
+    readonly items: NonEmptyArray<Item>,
+    readonly card: Card
+  ) {}
 }
 export class CardConfirmed {
   type: 'CardConfirmed' = 'CardConfirmed'
-  constructor(readonly items: NonEmptyArray<Item>, readonly card: Card) {}
+  constructor(
+    readonly items: NonEmptyArray<Item>,
+    readonly card: Card
+  ) {}
 }
 export class OrderPlaced {
   type: 'OrderPlaced' = 'OrderPlaced'
@@ -80,14 +86,14 @@ export type Event =
   | Cancel
 
 //
-// FSM
+// Faked APIs
 //
 
-type FSM<S, E> = (s: S, e: E) => Promise<S>
-
-type Amount = number
-
-const delay = <A>(millis: number, a: A, message: string): Promise<A> =>
+const delay = <A>(
+  millis: number,
+  a: A,
+  message: string
+): Promise<A> =>
   new Promise(res => {
     setTimeout(() => {
       console.log(message)
@@ -102,13 +108,30 @@ const PaymentProvider = {
 
 const ItemProvider = {
   calculatePrice: (items: Array<Item>) =>
-    delay(2000, 100, `calculating price for ${items.length} items`)
+    delay(
+      2000,
+      100,
+      `calculating price for ${items.length} items`
+    )
 }
 
-const handleNoItems = (s: NoItems, e: Event): Promise<State> => {
+//
+// FSM
+//
+
+type FSM<S, E> = (s: S, e: E) => Promise<S>
+
+type Amount = number
+
+const handleNoItems = (
+  s: NoItems,
+  e: Event
+): Promise<State> => {
   switch (e.type) {
     case 'Select':
-      return Promise.resolve(new HasItems(new NonEmptyArray(e.item, [])))
+      return Promise.resolve(
+        new HasItems(new NonEmptyArray(e.item, []))
+      )
     case 'Checkout':
     case 'SelectCard':
     case 'Confirm':
@@ -118,11 +141,16 @@ const handleNoItems = (s: NoItems, e: Event): Promise<State> => {
   }
 }
 
-const handleHasItems = (s: HasItems, e: Event): Promise<State> => {
+const handleHasItems = (
+  s: HasItems,
+  e: Event
+): Promise<State> => {
   switch (e.type) {
     case 'Select':
       return Promise.resolve(
-        new HasItems(new NonEmptyArray(e.item, s.items.toArray()))
+        new HasItems(
+          new NonEmptyArray(e.item, s.items.toArray())
+        )
       )
     case 'Checkout':
       return Promise.resolve(new NoCard(s.items))
@@ -148,10 +176,15 @@ const handleNoCard = (s: NoCard, e: Event): Promise<State> => {
   }
 }
 
-const handleCardSelected = (s: CardSelected, e: Event): Promise<State> => {
+const handleCardSelected = (
+  s: CardSelected,
+  e: Event
+): Promise<State> => {
   switch (e.type) {
     case 'Confirm':
-      return Promise.resolve(new CardConfirmed(s.items, s.card))
+      return Promise.resolve(
+        new CardConfirmed(s.items, s.card)
+      )
     case 'Cancel':
       return Promise.resolve(new HasItems(s.items))
     case 'Select':
@@ -162,11 +195,16 @@ const handleCardSelected = (s: CardSelected, e: Event): Promise<State> => {
   }
 }
 
-const handleCardConfirmed = (s: CardConfirmed, e: Event): Promise<State> => {
+const handleCardConfirmed = (
+  s: CardConfirmed,
+  e: Event
+): Promise<State> => {
   switch (e.type) {
     case 'PlaceOrder':
       return ItemProvider.calculatePrice(s.items.toArray())
-        .then(amount => PaymentProvider.chargeCard(s.card, amount))
+        .then(amount =>
+          PaymentProvider.chargeCard(s.card, amount)
+        )
         .then(() => new OrderPlaced())
     case 'Cancel':
       return Promise.resolve(new HasItems(s.items))
@@ -178,7 +216,10 @@ const handleCardConfirmed = (s: CardConfirmed, e: Event): Promise<State> => {
   }
 }
 
-const handleOrderPlaced = (s: OrderPlaced, e: Event): Promise<State> => {
+const handleOrderPlaced = (
+  s: OrderPlaced,
+  e: Event
+): Promise<State> => {
   switch (e.type) {
     case 'Select':
     case 'Checkout':
@@ -207,36 +248,69 @@ function fsm(s: State, e: Event): Promise<State> {
   }
 }
 
-const runFSM = <S, E>(fsm: FSM<S, E>) => (s: S) => (fe: Array<E>): Promise<S> =>
-  fe.reduce((ps, e) => ps.then(s => fsm(s, e)), Promise.resolve(s))
+//
+// tests
+//
 
-const show = <A>(x: A): string => {
-  const { type, ...rest } = x as any
-  // return `(${type} ${JSON.stringify(rest)})`
-  return `(${type})`
-}
+import * as assert from 'assert'
 
-const withLoggin = <S, E>(fsm: FSM<S, E>): FSM<S, E> => (s, e) =>
+const runFSM = <S, E>(fsm: FSM<S, E>) => (
+  s: S,
+  fe: Array<E>
+): Promise<S> =>
+  fe.reduce(
+    (ps, e) => ps.then(s => fsm(s, e)),
+    Promise.resolve(s)
+  )
+
+const withLogging = <S>(log: Array<S>) => <E>(
+  fsm: FSM<S, E>
+): FSM<S, E> => (s, e) =>
   fsm(s, e).then(s2 => {
-    console.log(`- ${show(s)} × ${show(e)} → ${show(s2)}`)
+    log.push(s2)
     return s2
   })
 
-runFSM(withLoggin(fsm))(new NoItems())([
+const log: Array<State> = []
+
+const initialState: State = new NoItems()
+
+runFSM(withLogging(log)(fsm))(initialState, [
   new Select({ name: 'potatoes', price: 23.95 }),
   new Select({ name: 'fish', price: 168.5 }),
   new Checkout(),
   new SelectCard('0000-0000-0000-0000'),
   new Confirm(),
   new PlaceOrder()
-])
-/*
-- (NoItems) × (Select) → (HasItems)
-- (HasItems) × (Select) → (HasItems)
-- (HasItems) × (Checkout) → (NoCard)
-- (NoCard) × (SelectCard) → (CardSelected)
-- (CardSelected) × (Confirm) → (CardConfirmed)
-calculating price for 2 items
-charging card 0000-0000-0000-0000: 100
-- (CardConfirmed) × (PlaceOrder) → (OrderPlaced)
-*/
+]).then(() => {
+  assert.deepEqual(log, expected)
+})
+
+const expected = [
+  new HasItems(
+    new NonEmptyArray({ name: 'potatoes', price: 23.95 }, [])
+  ),
+  new HasItems(
+    new NonEmptyArray({ name: 'fish', price: 168.5 }, [
+      { name: 'potatoes', price: 23.95 }
+    ])
+  ),
+  new NoCard(
+    new NonEmptyArray({ name: 'fish', price: 168.5 }, [
+      { name: 'potatoes', price: 23.95 }
+    ])
+  ),
+  new CardSelected(
+    new NonEmptyArray({ name: 'fish', price: 168.5 }, [
+      { name: 'potatoes', price: 23.95 }
+    ]),
+    '0000-0000-0000-0000'
+  ),
+  new CardConfirmed(
+    new NonEmptyArray({ name: 'fish', price: 168.5 }, [
+      { name: 'potatoes', price: 23.95 }
+    ]),
+    '0000-0000-0000-0000'
+  ),
+  new OrderPlaced()
+]

@@ -4,7 +4,7 @@
 
 */
 
-export declare function pick(ks: never, o: never): never
+export declare function pick(ks: Array<string>, o: never): never
 
 // tests
 

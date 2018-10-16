@@ -1,7 +1,7 @@
 import { Option, none, some } from '../06/Option'
 
 class NonZero {
-  readonly type: 'NonZero' = 'NonZero'
+  private readonly brand!: symbol
   static create(n: number): Option<NonZero> {
     return n === 0 ? none : some(new NonZero(n))
   }

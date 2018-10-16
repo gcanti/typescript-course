@@ -1,12 +1,18 @@
 /*
 
-  Esercizio: rappresentare il tipo `JSON`
+  Esercizio: modellare il tipo `JSON`
 
 */
 
 export interface JSONArray extends Array<JSON> {}
 export type JSONObject = { [key: string]: JSON }
-export type JSON = null | string | number | boolean | JSONArray | JSONObject
+export type JSON =
+  | null
+  | string
+  | number
+  | boolean
+  | JSONArray
+  | JSONObject
 
 // tests
 

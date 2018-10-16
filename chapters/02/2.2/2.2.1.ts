@@ -22,16 +22,10 @@ const x3 = g('foo')
 // x4: string
 const x4 = g(1)
 
-interface H {
-  (x: number): string
-  (x: string): number
+class G {
+  g(x: number): string
+  g(x: string): number
+  g(x: string | number): number | string {
+    return null as any
+  }
 }
-
-/*
-Type '(x: string | number) => string | number' is not assignable to type 'H'.
-  Type 'string | number' is not assignable to type 'string'.
-    Type 'number' is not assignable to type 'string'.
-*/
-const h1: H = (x: number | string): number | string => x
-
-const h2: H = (x: any): any => x

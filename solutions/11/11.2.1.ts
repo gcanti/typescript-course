@@ -1,31 +1,71 @@
-export type Open = 'Open'
-export type Closed = 'Closed'
-export type State = Open | Closed
+/*
 
-export class Door<S extends State> {
-  readonly S!: S
-  static start(): Door<Closed> {
-    return new Door(0)
+  Esercizio: definire il middleware `hello`
+
+  **** l'applicazione deve essere eseguibile ****
+
+*/
+
+import { Response } from 'express'
+
+export type StatusOpen = 'StatusOpen'
+export type HeadersOpen = 'HeadersOpen'
+export type BodyOpen = 'BodyOpen'
+export type ResponseEnded = 'ResponseEnded'
+export type State =
+  | StatusOpen
+  | HeadersOpen
+  | BodyOpen
+  | ResponseEnded
+
+class Middleware<S extends State> {
+  private readonly S!: S
+  static start(res: Response): Middleware<StatusOpen> {
+    return new Middleware(res)
   }
-  private constructor(readonly count: number) {}
-  open(this: Door<Closed>): Door<Open> {
-    return this as any
+  private constructor(readonly res: Response) {}
+  status(
+    this: Middleware<StatusOpen>,
+    status: number
+  ): Middleware<HeadersOpen> {
+    this.res.status(status)
+    return new Middleware(this.res)
   }
-  close(this: Door<Open>): Door<Closed> {
-    return this as any
+  headers(
+    this: Middleware<HeadersOpen>,
+    headers: Record<string, string>
+  ): Middleware<BodyOpen> {
+    for (const field in headers) {
+      this.res.setHeader(field, headers[field])
+    }
+    return new Middleware(this.res)
   }
-  ring(this: Door<Closed>): Door<Closed> {
-    return new Door(this.count + 1)
+  send(
+    this: Middleware<BodyOpen>,
+    body: string
+  ): Middleware<ResponseEnded> {
+    this.res.send(body)
+    return new Middleware(this.res)
   }
 }
 
-// tests
+const hello = (res: Response): Middleware<ResponseEnded> => {
+  return Middleware.start(res)
+    .status(200)
+    .headers({ 'Content-Type': 'text/html' })
+    .send('<h1>Hello type-level hackers!</h1>')
+}
 
-import * as assert from 'assert'
+//
+// usage
+//
 
-const x: Door<'Closed'> = Door.start()
-  .ring()
-  .open()
-  .close()
-  .ring()
-assert.strictEqual(x.count, 2)
+import * as express from 'express'
+
+const app = express()
+
+app.get('/', (_, res) => hello(res))
+
+app.listen(3000, () => {
+  console.log(`Server running on port 3000`)
+})

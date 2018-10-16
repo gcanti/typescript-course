@@ -9,7 +9,7 @@ const translations = {
   where: 'Dove'
 }
 
-export declare function translate(key: never): never
+export declare function translate(key: string): string
 
 // tests
 
