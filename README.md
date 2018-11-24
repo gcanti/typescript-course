@@ -3,7 +3,7 @@
 ## Setup
 
 ```sh
-npm i -g typescript@2.8.3 ts-node@6.0.4
+npm i -g typescript@latest ts-node@latest
 git clone https://github.com/gcanti/typescript-course.git
 cd typescript-course
 npm install
