@@ -1,22 +1,32 @@
-export declare function sequence<T>(
-  promises: Array<Promise<T>>
-): Promise<Array<T>>
+export declare function sequence<A>(
+  promises: Array<Promise<A>>
+): Promise<Array<A>>
 
 // step 1
 
 declare const TODO: any
 
-function sequence1<T>(promises: Array<Promise<T>>): Promise<Array<T>> {
-  const f: (acc: Promise<Array<T>>, x: Promise<T>) => Promise<Array<T>> = TODO
-  const init: Promise<Array<T>> = TODO
+function sequence1<A>(
+  promises: Array<Promise<A>>
+): Promise<Array<A>> {
+  const f: (
+    acc: Promise<Array<A>>,
+    x: Promise<A>
+  ) => Promise<Array<A>> = TODO
+  const init: Promise<Array<A>> = TODO
   return promises.reduce(f, init)
 }
 
 // step 2
 
-function sequence2<T>(promises: Array<Promise<T>>): Promise<Array<T>> {
-  const f: (acc: Promise<Array<T>>, x: Promise<T>) => Promise<Array<T>> = TODO
-  const init: Promise<Array<T>> = Promise.resolve([])
+function sequence2<A>(
+  promises: Array<Promise<A>>
+): Promise<Array<A>> {
+  const f: (
+    acc: Promise<Array<A>>,
+    x: Promise<A>
+  ) => Promise<Array<A>> = TODO
+  const init: Promise<Array<A>> = Promise.resolve([])
   return promises.reduce(f, init)
 }
 
@@ -28,9 +38,11 @@ function sequence2<T>(promises: Array<Promise<T>>): Promise<Array<T>> {
 //   f: (a: A, b: B) => C
 // ): (fa: Promise<A>, fb: Promise<B>) => Promise<C>
 
-function sequence3<T>(promises: Array<Promise<T>>): Promise<Array<T>> {
-  const f = liftA2<Array<T>, T, Array<T>>(push)
-  const init: Promise<Array<T>> = Promise.resolve([])
+function sequence3<A>(
+  promises: Array<Promise<A>>
+): Promise<Array<A>> {
+  const f = liftA2<Array<A>, A, Array<A>>(push)
+  const init: Promise<Array<A>> = Promise.resolve([])
   return promises.reduce(f, init)
 }
 
@@ -46,8 +58,14 @@ function liftA2<A, B, C>(
   return (fa, fb) => fa.then(a => fb.then(b => f(a, b)))
 }
 
-const promises = [Promise.resolve(1), Promise.resolve(2), Promise.resolve(3)]
+import * as assert from 'assert'
 
-sequence3(promises).then(x => console.log(x)) // [1, 2, 3]
+const promises = [
+  Promise.resolve(1),
+  Promise.resolve(2),
+  Promise.resolve(3)
+]
 
-// ts-node solutions/04/4.0.1.ts
+sequence3(promises).then(x => {
+  assert.deepEqual(x, [1, 2, 3])
+})
