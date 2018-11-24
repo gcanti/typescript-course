@@ -1589,7 +1589,9 @@ Consideriamo la funzione
 const inverse = (x: number): number => 1 / x
 \end{code}
 
-Tale funzione si dice \emph{parziale} perchè non è definita per tutti i valori del dominio ($x = 0$).
+Come abbiamo visto nell'introduzione tale funzione si dice \emph{parziale} perchè non è definita per tutti i valori del dominio
+(in particolare non è definita per $x = 0$).
+
 Come possiamo gestire questa situazione?
 
 Una soluzione potrebbe essere lanciare un'eccezione
@@ -1610,7 +1612,7 @@ An expression is said to be \emph{referentially transparent} if it can be replac
 \end{quote}
 }.
 
-Un'altra possibile soluzione è restituire \texttt{null}
+Un'altra possibile soluzione è restituire \texttt{null} (oppure un altro valore \emph{sentinella})
 
 \begin{code}
 const inverse = (x: number): number | null => {
@@ -1655,13 +1657,11 @@ La soluzione funzionale ai problemi illustrati precedentemente è l'utilizzo del
 eccone la definizione
 
 \begin{code}
+// sum type
 type Option<A> = None<A> | Some<A>
 
 class None<A> {
-  // sum type, si noti la type annotation esplicita
-  // altrimenti nel definition file avremmo
-  // readonly type: string;
-  readonly type: "None" = "None"
+  readonly _tag: "None" = "None"
   map<B>(f: (a: A) => B): Option<B> {
     return none
   }
@@ -1671,7 +1671,7 @@ class None<A> {
 }
 
 class Some<A> {
-  readonly type: "Some" = "Some"
+  readonly _tag: "Some" = "Some"
   constructor(readonly value: A) {}
   map<B>(f: (a: A) => B): Option<B> {
     return new Some(f(this.value))
@@ -1736,7 +1736,17 @@ const head = <A>(as: Array<A>): Option<A> => {
 
 head([]).chain(inverse) // None
 head([1, 2, 3]).chain(inverse) // Some(0.5)
+head([0, 1, 2]).chain(inverse) // None
 \end{code}
+
+\begin{exercise}
+Definire la funzione \texttt{index} che, dato un array e un indice, restituisce l'elemento a quell'indice (se esiste)
+\end{exercise}
+
+\begin{exercise}
+Definire la funzione \texttt{updateAt} che, dato un array, un indice e una funzione, restituisce un nuovo array
+con la funzione applicata all'\texttt{i}-esimo suo elemento
+\end{exercise}
 
 \subsection{Branching tramite la funzione \texttt{fold}}
 
@@ -1746,23 +1756,36 @@ La funzione \texttt{fold} permette di gestire i due casi
 \begin{code}
 class None<A> {
   ...
-  fold<R>(whenNone: () => R, whenSome: (a: A) => R): R {
+  fold<R>(whenNone: R, whenSome: (a: A) => R): R {
+    return whenNone
+  }
+  // variante "lazy"
+  foldL<R>(whenNone: () => R, whenSome: (a: A) => R): R {
     return whenNone()
   }
 }
 
 class Some<A> {
   ...
-  fold<R>(whenNone: () => R, whenSome: (a: A) => R): R {
+  fold<R>(whenNone: R, whenSome: (a: A) => R): R {
+    return whenSome(this.value)
+  }
+  foldL<R>(whenNone: () => R, whenSome: (a: A) => R): R {
     return whenSome(this.value)
   }
 }
+\end{code}
 
+Vediamo un esempio di utilizzo
+
+\begin{code}
 const whenNone = (): string => "cannot divide by zero"
 const whenSome = (x: number): string => "the result is" + x
 
-inverse(2).fold(whenNone, whenSome) // "the result is 0.5"
-inverse(0).fold(whenNone, whenSome) // "cannot divide by zero"
+inverse(2).foldL(whenNone, whenSome)
+// "the result is 0.5"
+inverse(0).foldL(whenNone, whenSome)
+// "cannot divide by zero"
 \end{code}
 
 Si noti come il branching è racchiuso nella definizione di \texttt{Option} e non necessita di alcun \texttt{if}
@@ -1780,7 +1803,10 @@ const fromNullable = <A>(
 ): Option<A> => a == null ? none : some(a)
 
 const toNullable = <A>(fa: Option<A>): A | null =>
-  fa.fold(() => null, a => a)
+  fa.fold(null, identity)
+
+const toUndefined = <A>(fa: Option<A>): A | undefined =>
+  fa.fold(undefined, identity)
 \end{code}
 
 \subsection{Il tipo \texttt{Either}}
@@ -1795,7 +1821,7 @@ oppure se si vuole definire un errore personalizzato, è possibile impiegare il 
 type Either<L, A> = Left<L, A> | Right<L, A>
 
 class Left<L, A> {
-  readonly type: "Left" = "Left"
+  readonly _tag: "Left" = "Left"
   constructor(readonly value: L) {}
   map<B>(f: (a: A) => B): Either<L, B> {
     return this as any
@@ -1806,7 +1832,7 @@ class Left<L, A> {
 }
 
 class Right<L, A> {
-  readonly type: "Right" = "Right"
+  readonly _tag: "Right" = "Right"
   constructor(readonly value: A) {}
   map<B>(f: (a: A) => B): Either<L, B> {
     return new Right(f(this.value))
@@ -1877,7 +1903,7 @@ class Right<L, A> {
 }
 \end{code}
 
-\begin{example}
+\begin{exercise}
 Tipizzare le callback nelle API di node.js
 
 Un esempio tipico di una API in node.js è \texttt{readFile}
@@ -1895,44 +1921,24 @@ quella in cui sia \texttt{err} che \texttt{data} sono presenti.
 Una migliore tipizzazione può essere realizzata sfruttando il tipo \texttt{Either}
 
 \begin{code}
-import { Either } from "./Either"
-
 declare function betterReadFile(
   path: string,
   callback: (result: Either<Error, string>) => void
 ): void
 \end{code}
-\end{example}
-
-\begin{example}
-Tipizzare le \texttt{Promise}
+\end{exercise}
 
 La tipizzazione standard delle \texttt{Promise} non prevede un tipo per gli errori.
+
+Anche in questo caso una migliore tipizzazione può essere realizzata sfruttando il tipo \texttt{Either}.
+
+\begin{exercise}
+Definire un wrapper della seguente funzione \texttt{readFile} in modo che utiizzi \texttt{Either} nel tipo di ritorno
 
 \begin{code}
 declare function readFile(path: string): Promise<string>
 \end{code}
-
-Anche in questo caso una migliore tipizzazione può essere realizzata sfruttando il tipo \texttt{Either}.
-
-\begin{code}
-import { Either, right, left } from './Either'
-
-declare function betterReadFile(
-  path: string
-): Promise<Either<Error, string>>
-
-export const attempt = <L, A>(
-  promise: Promise<A>,
-  onrejected: (reason: {}) => L
-): Promise<Either<L, A>> => {
-  return promise.then(
-    a => right<L, A>(a),
-    reason => left<L, A>(onrejected(reason))
-  )
-}
-\end{code}
-\end{example}
+\end{exercise}
 
 \newpage
 \section{Finite state machines}
