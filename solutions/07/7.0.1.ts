@@ -1,4 +1,4 @@
-import { NonEmptyArray } from '../NonEmptyArray'
+import { NonEmptyArray } from 'fp-ts/lib/NonEmptyArray'
 
 export interface Item {
   name: string
