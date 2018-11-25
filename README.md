@@ -15,4 +15,12 @@ npm install
 npm test -- src/<file>
 ```
 
+per gli esercizi che riguardano la programmazione type level, oppure
+
+```sh
+ts-node src/<file>
+```
+
+per gli altri.
+
 **Nota**. Le soluzioni fornite in questo repository costituiscono solo un punto di referimento, in generale **gli esercizi possono ammettere più di una soluzione corretta**.

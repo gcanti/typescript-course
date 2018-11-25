@@ -97,6 +97,14 @@ il risultato eseguendo il seguente comando da terminale
 npm test -- src/<file>
 \end{verbatim}
 
+per gli esercizi che riguardano la programmazione type level, oppure
+
+\begin{verbatim}
+ts-node src/<file>
+\end{verbatim}
+
+per gli altri.
+
 Se non viene sollevata alcuna eccezione la soluzione è da considerarsi corretta.
 
 \begin{observation}
@@ -298,6 +306,16 @@ Un tipo \texttt{X} si dice \emph{bottom type} se è sottotipo di ogni altro tipo
 
 Il tipo \texttt{never} non contiene abitanti ed è un \emph{bottom type}.
 
+\begin{code}
+const raise = (message: string): never => {
+  throw new Error(message)
+}
+
+const absurd = <A>(x: never): A => {
+  return raise("absurd")
+}
+\end{code}
+
 \begin{definition}
 Un tipo \texttt{X} si dice \emph{top type} se è supertipo di ogni altro tipo
 \end{definition}
@@ -344,7 +362,8 @@ x.bar // static error: Object is of type 'unknown'
 Ridefinire il tipo di una funzione può essere fatto in modo che non ci sia alcun costo a runtime.
 \end{observation}
 
-Raffinare un valore vuol dire scrivere del codice specifico che permette di provare al type checker alcune caratteristiche del valore
+\emph{Raffinare} un valore vuol dire scrivere del codice specifico che permette di provare al type checker
+alcune caratteristiche sul tipo del valore
 
 \begin{code}
 if (typeof x === 'object') {
@@ -368,7 +387,9 @@ Vedremo più avanti come sia possibile eliminare il boilerplate utilizzando le \
 
 \subsection{Inline declarations}
 
-Le dichiarazione all'interno del codice invece che nei definition file sono particolarmente utili quando si stia esplorando
+Le dichiarazione all'interno del codice invece che nei \textbf{definition file}
+\footnote{I definition file costituiscono un ponte tra il mondo untyped di JavaScript e quello types di TypeScript}
+sono particolarmente utili quando si stia esplorando
 una soluzione e per fare velocemente delle prove di type checking.
 
 \begin{example}
@@ -449,11 +470,6 @@ class G {
   }
 }
 \end{code}
-
-\begin{boxed}
-Gli overloading sono una possiblità \textbf{tecnica}, tuttavia valutate attentamente l'opportunità di definire una unione
-per il tipo di ritorno, in genere non è un design consigliabile
-\end{boxed}
 
 \begin{exercise}
 Tipizzare la funzione \texttt{compose}
@@ -559,7 +575,8 @@ O in altre parole \texttt{B} deve essere un \textbf{sottotipo} di \texttt{A}.
 La keyword \texttt{extends} può essere usata per \textbf{mettere in relazione} due type parameter
 \end{boxed}
 
-In particolare \texttt{extends} viene spesso usata per definire dei vincoli ad un type parameter che siano basati su un altro type parameter.
+In particolare \texttt{extends} viene spesso usata per definire dei vincoli su di un type parameter
+che siano basati su un altro type parameter.
 
 \begin{example}
 Una semplice custom type guard: \texttt{isString}
@@ -973,6 +990,18 @@ declare function set(
   o: unknown
 ): unknown
 \end{code}
+\end{exercise}
+
+\begin{observation}
+Si noti che \texttt{Object.keys} è tipizzato così
+
+\begin{code}
+Object.keys: (o: {}) => string[]
+\end{code}
+\end{observation}
+
+\begin{exercise}
+Perchè? Quale alternativa potremmo definire?
 \end{exercise}
 
 \subsection{Mapped types}

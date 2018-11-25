@@ -5,7 +5,19 @@
 */
 
 import { Option, some, none } from 'fp-ts/lib/Option'
-import { Positive } from './12.2.1'
+
+export interface Newtype<M, A> {
+  readonly M: M
+  readonly A: A
+}
+
+interface Positive
+  extends Newtype<
+      {
+        readonly Positive: unique symbol
+      },
+      number
+    > {}
 
 class Prism<S, A> {
   constructor(
