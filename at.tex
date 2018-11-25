@@ -1054,7 +1054,7 @@ interface X {
   c: boolean
 }
 /*
-Risultato:
+Risultato atteso:
 {
   a: (x: string) => boolean
   b: (x: number) => boolean
@@ -1234,7 +1234,7 @@ new Foo().doSomethingElse() // ok
 \end{code}
 \end{example}
 
-Il caso d'uso più comune per questa feature è quello di "correggere" i typings di una libreria esterna.
+Un caso comune di utilizzo di questa feature è quello di "correggere" i typings di una libreria esterna.
 
 \subsection{Conditional types}
 
@@ -1467,6 +1467,17 @@ const y = tuple(1, "foo", true)
 \end{code}
 
 \end{example}
+
+È possibile mappare le tuple così come abbiamo visto fare con i mapped type
+
+\begin{code}
+declare function toPairs<T extends Array<any>>(
+  ...t: T
+): { [K in keyof T]: [K, T[K]] }
+
+// const x: [["0", number], ["1", string], ["2", boolean]]
+const x = toPairs(1, "s", true)
+\end{code}
 
 \begin{exercise}
 Tipizzare la seguente funzione \texttt{all} in modo che preservi le tuple
