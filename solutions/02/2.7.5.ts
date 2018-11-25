@@ -15,7 +15,10 @@ export class Iso<S, A> {
   to: Iso<S, A>['get']
   wrap: this['reverseGet']
   from: Iso<S, A>['reverseGet']
-  constructor(readonly get: (s: S) => A, readonly reverseGet: (a: A) => S) {
+  constructor(
+    readonly get: (s: S) => A,
+    readonly reverseGet: (a: A) => S
+  ) {
     this.to = this.unwrap = get
     this.from = this.wrap = reverseGet
   }
@@ -25,7 +28,10 @@ export class Iso<S, A> {
 
 import * as assert from 'assert'
 
-const meter2Km = new Iso<number, number>(s => s / 1000, a => a * 1000)
+const meter2Km = new Iso<number, number>(
+  s => s / 1000,
+  a => a * 1000
+)
 
 assert.strictEqual(meter2Km.get(1200), 1.2)
 assert.strictEqual(meter2Km.to(1200), 1.2)

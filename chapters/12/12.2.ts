@@ -29,17 +29,17 @@ celsius2fahrenheit(far)
 
 interface NonZero
   extends Newtype<
-      { readonly NonZero: unique symbol },
-      number
-    > {}
+    { readonly NonZero: unique symbol },
+    number
+  > {}
 
 interface Positive
   extends Newtype<
-      NonZero['M'] & {
-        readonly Positive: unique symbol
-      },
-      number
-    > {}
+    NonZero['M'] & {
+      readonly Positive: unique symbol
+    },
+    number
+  > {}
 
 declare function inverse(nz: NonZero): NonZero
 declare function mult(a: Positive, b: Positive): Positive

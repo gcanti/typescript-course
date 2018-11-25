@@ -9,7 +9,9 @@ const translations = {
   where: 'Dove'
 }
 
-export declare function translate(key: keyof typeof translations): string
+export declare function translate(
+  key: keyof typeof translations
+): string
 
 // tests
 

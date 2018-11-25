@@ -1,4 +1,7 @@
-export const map = <A, B>(f: (a: A) => B, fa: Array<A>): Array<B> => fa.map(f)
+export const map = <A, B>(
+  f: (a: A) => B,
+  fa: Array<A>
+): Array<B> => fa.map(f)
 
 // map: <string, number>
 map(s => s.length, ['foo'])
@@ -8,13 +11,17 @@ map(s => s.length, ['foo'])
 
 // meglio sarebbe
 
-const mapFlipped = <A, B>(fa: Array<A>, f: (a: A) => B): Array<B> => fa.map(f)
+const mapFlipped = <A, B>(
+  fa: Array<A>,
+  f: (a: A) => B
+): Array<B> => fa.map(f)
 
 // ora TypeScript è in grado già di inferire il tipo `A`
 // mapFlipped(['foo'], )
 
-const mapCurried = <A, B>(f: (a: A) => B) => (fa: Array<A>): Array<B> =>
-  fa.map(f)
+const mapCurried = <A, B>(f: (a: A) => B) => (
+  fa: Array<A>
+): Array<B> => fa.map(f)
 
 // mapCurried: mapCurried: <string, number>(f:
 // (a: string) => number) => (fa: string[]) => number[]

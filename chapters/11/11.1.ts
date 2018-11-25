@@ -6,4 +6,6 @@ use(data) // called without validating the input
 
 Data.validate(data).map(use)
 
-Data.validate(data).chain(validated => Data.validate(validated))
+Data.validate(data).chain(validated =>
+  Data.validate(validated)
+)

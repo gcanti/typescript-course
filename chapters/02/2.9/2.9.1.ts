@@ -3,4 +3,5 @@ export interface Person {
   age: number
 }
 
-const getName = <T extends { name: string }>(x: T): string => x.name
+const getName = <T extends { name: string }>(x: T): string =>
+  x.name

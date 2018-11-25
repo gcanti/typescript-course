@@ -4,7 +4,10 @@
 
 */
 
-export declare function get<O, K extends keyof O>(k: K, o: O): O[K]
+export declare function get<O, K extends keyof O>(
+  k: K,
+  o: O
+): O[K]
 
 // tests
 

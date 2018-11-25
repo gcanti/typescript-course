@@ -55,7 +55,9 @@ const boolean = new Type<boolean>(
   identity
 )
 
-const array = <A, O>(type: Type<A, O>): Type<Array<A>, Array<O>> =>
+const array = <A, O>(
+  type: Type<A, O>
+): Type<Array<A>, Array<O>> =>
   new Type(
     `Array<${type.name}>`,
     (m): m is Array<A> => Array.isArray(m) && m.every(type.is),
@@ -77,7 +79,9 @@ const array = <A, O>(type: Type<A, O>): Type<Array<A>, Array<O>> =>
               break
           }
         }
-        return errors.length > 0 ? left(errors) : right(elements)
+        return errors.length > 0
+          ? left(errors)
+          : right(elements)
       }
     },
     as => as.map(type.encode)
@@ -85,11 +89,14 @@ const array = <A, O>(type: Type<A, O>): Type<Array<A>, Array<O>> =>
 
 const DateFromMillis = new Type<Date, number>(
   'DateFromMillis',
-  (m): m is Date => number.is(m) && !isNaN(new Date(m).getTime()),
+  (m): m is Date =>
+    number.is(m) && !isNaN(new Date(m).getTime()),
   m =>
     number.decode(m).chain(n => {
       const d = new Date(n)
-      return isNaN(d.getTime()) ? left([`expected a Date, got ${n}`]) : right(d)
+      return isNaN(d.getTime())
+        ? left([`expected a Date, got ${n}`])
+        : right(d)
     }),
   a => a.getTime()
 )

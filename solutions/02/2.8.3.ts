@@ -24,4 +24,8 @@ pick(['d'], x)
 const s1 = pick(['a'], x)
 type S1 = AssertEquals<typeof s1, { a: string }, 'T'>
 const s2 = pick(['a', 'b'], x)
-type S2 = AssertEquals<typeof s2, { a: string; b: number }, 'T'>
+type S2 = AssertEquals<
+  typeof s2,
+  { a: string; b: number },
+  'T'
+>

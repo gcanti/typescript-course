@@ -9,7 +9,10 @@ declare function compose<A, B, C, D>(
   f: (b: B) => C,
   g: (a: A) => B
 ): (a: A) => D
-declare function compose<A, B, C>(f: (b: B) => C, g: (a: A) => B): (a: A) => C
+declare function compose<A, B, C>(
+  f: (b: B) => C,
+  g: (a: A) => B
+): (a: A) => C
 declare function compose<A>(...f: Array<Function>): Function
 
 // tests

@@ -11,19 +11,19 @@ export interface Newtype<M, A> {
 
 export interface Positive
   extends Newtype<
-      {
-        readonly Positive: unique symbol
-      },
-      number
-    > {}
+    {
+      readonly Positive: unique symbol
+    },
+    number
+  > {}
 
 interface Integer
   extends Newtype<
-      {
-        readonly Integer: unique symbol
-      },
-      number
-    > {}
+    {
+      readonly Integer: unique symbol
+    },
+    number
+  > {}
 
 interface PositiveInteger
   extends Newtype<Positive['M'] & Integer['M'], number> {}

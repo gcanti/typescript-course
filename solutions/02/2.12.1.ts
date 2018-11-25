@@ -18,5 +18,11 @@ export declare function all<T extends Array<Promise<any>>>(
 
 import { AssertEquals } from '../equals'
 
-const s1 = all(tuple(Promise.resolve(1), Promise.resolve('foo')))
-type S1 = AssertEquals<typeof s1, Promise<[number, string]>, 'T'>
+const s1 = all(
+  tuple(Promise.resolve(1), Promise.resolve('foo'))
+)
+type S1 = AssertEquals<
+  typeof s1,
+  Promise<[number, string]>,
+  'T'
+>
