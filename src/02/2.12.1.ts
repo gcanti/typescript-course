@@ -4,7 +4,7 @@
 
 */
 
-function tuple<T extends Array<any>>(...t: T): T {
+function tuple<T extends Array<unknown>>(...t: T): T {
   return t
 }
 

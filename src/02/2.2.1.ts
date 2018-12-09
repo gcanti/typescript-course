@@ -4,7 +4,7 @@
 
 */
 
-declare function compose(...f: Array<never>): never
+export declare function compose(...f: Array<never>): never
 
 // tests
 

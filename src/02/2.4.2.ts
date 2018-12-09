@@ -4,7 +4,7 @@
 
 */
 
-const isArrayOfNumbers = (x: any): any => {
+export const isArrayOfNumbers = (x: unknown): unknown => {
   return false
 }
 

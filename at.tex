@@ -69,7 +69,7 @@ before the operation is actually performed. This may be at compile time or at ru
 
 \begin{itemize}
   \item \texttt{node} e \texttt{npm}
-  \item \texttt{typescript@3.1.6+}
+  \item \texttt{typescript@3.2.2+}
   \item \texttt{typings-checker@2.0.0+}
   \item \texttt{tsconfig.json}
     \begin{itemize}
@@ -332,7 +332,7 @@ Un problema di \texttt{any} è che non è adatto a rappresentare \emph{input non
 \texttt{JSON.parse} è unsafe dato che il tipo di ritorno è \texttt{any}.
 
 \begin{code}
-const payload = `{"bar":"foo"}`
+const payload = `{"a":1}`
 const x = JSON.parse(payload)
 // `x` è di tipo `any`
 x.bar.trim() // runtime error:
@@ -1145,7 +1145,7 @@ type Pick<T, K extends keyof T> = { [P in K]: T[P] }
 /**
  * Construct a type with a set of properties K of type T
  */
-type Record<K extends string, T> = { [P in K]: T }
+type Record<K extends keyof any, T> = { [P in K]: T }
 \end{code}
 \end{example}
 
@@ -1405,7 +1405,7 @@ Tipizzare la funzione \texttt{omit}
 Fino alla versione \texttt{3.0.x} i rest parameter erano tipizzabili esclusivamente con \texttt{Array}
 
 \begin{example}
-La funzione \texttt{Math.max}
+La funzione \texttt{Math.min}
 
 \begin{code}
 /**
@@ -2799,7 +2799,7 @@ ys.push(undefined) // ok :(
 
 Le funzioni sono \textbf{controvarianti} in input e \textbf{covarianti} in output, ovvero
 
-\texttt{(a:A) => B $\leq$ (c:C) => D} se \texttt{A $\leq$ C} e \texttt{D $\leq$ B}
+\texttt{(a:A) => B $\geq$ (c:C) => D} se \texttt{A $\leq$ C} e \texttt{D $\leq$ B}
 
 \[
 \xymatrixrowsep{3cm}
