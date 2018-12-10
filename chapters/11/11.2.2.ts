@@ -4,9 +4,7 @@ export type State = Open | Closed
 
 export class Door<S extends State> {
   private readonly S!: S
-  static start(): Door<Closed> {
-    return new Door(0)
-  }
+  static start: Door<Closed> = new Door(0)
   private constructor(readonly count: number) {}
   open(this: Door<Closed>): Door<Open> {
     return new Door(this.count)
@@ -19,23 +17,21 @@ export class Door<S extends State> {
   }
 }
 
-// Door.start().close() // error
+// Door.start.close() // error
 
-// Door.start()
+// Door.start
 //   .open()
 //   .ring() // error
 
-Door.start()
+Door.start
   .ring()
   .open()
   .close()
   .ring()
   .open() // ok
 
-const x: Door<Closed> = Door.start()
-  .ring()
-  .open() // error
-const y: Door<Closed> = Door.start()
+const x: Door<Closed> = Door.start.ring().open() // error
+const y: Door<Closed> = Door.start
   .ring()
   .open()
   .close() // ok

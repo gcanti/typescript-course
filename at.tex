@@ -2153,6 +2153,8 @@ Posso allora definire uno \emph{smart constructor}, ovvero una funzione che ha c
 effettua il controllo a runtime
 
 \begin{code}
+import { Option, none, some } from "fp-ts/lib/Option"
+
 export const create = (n: number): Option<NonZero> =>
   n === 0 ? none : some(new NonZero(n))
 \end{code}
@@ -2160,13 +2162,13 @@ export const create = (n: number): Option<NonZero> =>
 Nella pratica uno smart constructor trasporta un controllo a runtime a livello dei tipi.
 
 Si noti che \texttt{NonZero} non è esportato mentre dal modulo è esportata la sola funzione \texttt{create}, in questo
-modo si mantiene il controllo totale sulla creazione di istanze di \texttt{NonZero} che non sempre valide.
+modo si mantiene il controllo totale sulla creazione delle istanze di \texttt{NonZero}.
 
-Tuttavia ci può essere una complicazione se \texttt{declaration = true} nel \texttt{tsconfig.json}
-(caso che può capitare se per esempio se si sta scrivendo una libreria). In questo caso
-TypeScript costringe ad esportare anche il tipo \texttt{NonZero}, ma con esso \textbf{anche il costruttore}.
+Ci sono casi tuttavia in cui vogliamo esportare il \textbf{tipo} di \texttt{NonZero}, come fare?
 
-Si può rimediare con il seguente workaround
+Si può rimediare con i seguenti workaround
+
+\paragraph{Workaround 1}
 
 \begin{itemize}
 \item rendere privato il costruttore di \texttt{NonZero}
@@ -2174,7 +2176,8 @@ Si può rimediare con il seguente workaround
 \end{itemize}
 
 \begin{code}
-class NonZero {
+// NonZero.ts
+export class NonZero {
   private readonly brand!: symbol
   static create(n: number): Option<NonZero> {
     return n === 0 ? none : some(new NonZero(n))
@@ -2182,8 +2185,41 @@ class NonZero {
   private constructor(readonly value: number) {}
 }
 
-// inverse adesso è totale!
+// inverse.ts
 const inverse = (x: NonZero): number => 1 / x.value
+\end{code}
+
+\paragraph{Workaround 2}
+
+\begin{itemize}
+\item mantenere privata la definizione di \texttt{NonZero}
+\item exportare una interfaccia che estende \texttt{NonZero}
+\end{itemize}
+
+\begin{code}
+class _NonZero {
+  private readonly brand!: symbol
+  constructor(readonly value: number) {}
+}
+
+export interface NonZero extends _NonZero {}
+
+export const create = (n: number): Option<NonZero> =>
+  n === 0 ? none : some(new _NonZero(n))
+\end{code}
+
+\paragraph{Workaround 3}
+
+Se non si devono definire metodi del tipo \texttt{NonZero} si può usare direttamente una interfaccia
+
+\begin{code}
+export interface NonZero {
+  readonly brand: unique symbol
+  readonly value: number
+}
+
+export const create = (n: number): Option<NonZero> =>
+  n === 0 ? none : some({ value: n } as any)
 \end{code}
 
 In questo modo si possono spingere i controlli a runtime là dove dovrebbe essere il loro posto naturale: ai confini del sistema,
@@ -2387,7 +2423,7 @@ class Door<S extends State> {
   constructor(readonly count: number) {}
 }
 
-const start = (): Door<Closed> => new Door(0)
+const start: Door<Closed> = new Door(0)
 \end{code}
 
 Ora definiamo una operazione per ogni arco del grafo
@@ -2406,11 +2442,11 @@ const ring = (door: Door<Closed>): Door<Closed> =>
 La corretta successione delle operazioni ora è assicurata staticamente
 
 \begin{code}
-close(start()) // error
+close(start) // error
 
-ring(open(start())) // error
+ring(open(start)) // error
 
-open(ring(close(open(ring(start()))))) // ok
+open(ring(close(open(ring(start))))) // ok
 \end{code}
 \end{example}
 
@@ -2424,9 +2460,7 @@ Inoltre posso imporre uno stato iniziale rendendo il costruttore privato
 \begin{code}
 class Door<S extends State> {
   private readonly S!: S
-  static start(): Door<Closed> {
-    return new Door(0)
-  }
+  static start: Door<Closed> = new Door(0)
   private constructor(readonly count: number) {}
   open(this: Door<Closed>): Door<Open> {
     return new Door(this.count)
@@ -2443,13 +2477,13 @@ class Door<S extends State> {
 Ancora una volta la corretta successione delle operazioni è assicurata staticamente
 
 \begin{code}
-Door.start().close() // error
+Door.start.close() // error
 
-Door.start()
+Door.start
   .open()
   .ring() // error
 
-Door.start()
+Door.start
   .ring()
   .open()
   .close()
@@ -2460,10 +2494,10 @@ Door.start()
 Posso anche richiedere un esplicito stato finale
 
 \begin{code}
-const x: Door<Closed> = Door.start()
+const x: Door<Closed> = Door.start
   .ring()
   .open() // error
-const y: Door<Closed> = Door.start()
+const y: Door<Closed> = Door.start
   .ring()
   .open()
   .close() // ok

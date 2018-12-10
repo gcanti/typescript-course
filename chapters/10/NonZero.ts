@@ -1,4 +1,4 @@
-import { Option, none, some } from '../06/Option'
+import { Option, none, some } from 'fp-ts/lib/Option'
 
 class NonZero {
   private readonly brand!: symbol
