@@ -1,6 +1,6 @@
 /*
 
-  Esercizio: fefinire la funzione `index` che, dato un array e un indice, restituisce l'elemento a quell'indice (se esiste)
+  Esercizio: definire la funzione `index` che, dato un array e un indice, restituisce l'elemento a quell'indice (se esiste)
 
 */
 

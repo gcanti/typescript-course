@@ -14,6 +14,7 @@ const hello = (res: Response): Middleware<ResponseEnded> => {
   return Middleware.start(res)
     .status(200)
     .headers({ 'Content-Type': 'text/html' })
+    .closeHeaders()
     .send('<h1>Hello type-level hackers!</h1>')
 }
 

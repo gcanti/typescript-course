@@ -34,11 +34,16 @@ class Middleware<S extends State> {
   headers(
     this: Middleware<HeadersOpen>,
     headers: Record<string, string>
-  ): Middleware<BodyOpen> {
+  ): Middleware<HeadersOpen> {
     for (const field in headers) {
       this.res.setHeader(field, headers[field])
     }
     return new Middleware(this.res)
+  }
+  closeHeaders(
+    this: Middleware<HeadersOpen>
+  ): Middleware<BodyOpen> {
+    return this as any
   }
   send(
     this: Middleware<BodyOpen>,
@@ -53,6 +58,7 @@ const hello = (res: Response): Middleware<ResponseEnded> => {
   return Middleware.start(res)
     .status(200)
     .headers({ 'Content-Type': 'text/html' })
+    .closeHeaders()
     .send('<h1>Hello type-level hackers!</h1>')
 }
 
