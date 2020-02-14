@@ -17,4 +17,5 @@ f(f)
 declare function g(c: C): void
 
 g(new C(1))
-g(new A()) // error
+// $ExpectError
+g(new A())
