@@ -3,6 +3,28 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Introduzione](#introduzione)
+  - [Setup](#setup)
+  - [Come eseguire gli esercizi del corso](#come-eseguire-gli-esercizi-del-corso)
+    - [`$ExpectType` e `$ExpectError`](#expecttype-e-expecterror)
+  - [Il type system di TypeScript è strutturale](#il-type-system-di-typescript-%C3%A8-strutturale)
+  - [Funzioni parziali](#funzioni-parziali)
+  - [Strutture dati mutabili](#strutture-dati-mutabili)
+  - [Il tipo `object`](#il-tipo-object)
+  - [I tipi `any`, `never` e `unknown`](#i-tipi-any-never-e-unknown)
+- [Tour delle feature avanzate](#tour-delle-feature-avanzate)
+- [Definition file](#definition-file)
+- [TDD (Type Driven Development)](#tdd-type-driven-development)
+- [ADT (Algebraic Data Types)](#adt-algebraic-data-types)
+- [Error handling funzionale](#error-handling-funzionale)
+- [Finite state machines](#finite-state-machines)
+- [Come migliorare la type inference delle fun- zioni polimorfiche](#come-migliorare-la-type-inference-delle-fun--zioni-polimorfiche)
+- [Simulazione dei tipi nominali](#simulazione-dei-tipi-nominali)
+- [Refinements e smart constructors](#refinements-e-smart-constructors)
+- [Phantom types](#phantom-types)
+- [Newtypes](#newtypes)
+- [Validazione a runtime](#validazione-a-runtime)
+- [Covarianza e controvarianza](#covarianza-e-controvarianza)
+- [Parse, don't validate](#parse-dont-validate)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -13,7 +35,7 @@ Questo corso mira ad esporre una serie di tecniche per sfruttare al massimo la _
 > Type safe usually refers to languages that ensure that an operation is working on the right kind of data at some point
 before the operation is actually performed. This may be at compile time or at runtime.
 
-**Obbiettivo**. (ambizioso): eliminare gli errori a runtime.
+**Obbiettivo**. (ambizioso) eliminare gli errori a runtime.
 
 ![](images/type-safety.png)
 
@@ -83,28 +105,219 @@ g(new A())
 
 ## Funzioni parziali
 
-**Definizione**. Una funzione _parziale_ `f: X -> Y` è una funzione che non è definita per tutti i valori del suo dominio `X` (`Y` è chiamato il _codominio_).
+Una grande fonte di problemi e bug sono le funzioni parziali, specialmente in TypeScript, vediamone la definizione:
+
+**Definizione**. Una funzione _parziale_ `f: X ⟶ Y` è una funzione che non è definita per tutti i valori del suo dominio `X` (`Y` è chiamato il _codominio_).
 
 Viceversa una funzione definita per tutti i valori del dominio è detta _totale_.
 
 **Esempio**. La funzione `head`
 
 ```ts
+// chapters/01/head.ts
+
 function head(xs: Array<number>): number {
   return xs[0]
 }
 
-const x: number = head([]) // no error
+export const result: number = head([]) // no error
 ```
 
 **Esempio**. La funzione `readFileSync`
 
 ```ts
-import * as fs from "fs"
+// chapters/01/readFileSync.ts
 
-const s: string = fs.readFileSync("", "utf8")
+import * as fs from 'fs'
+
+export const result: string = fs.readFileSync('', 'utf8')
 // throws "no such file or directory"
 ```
+
+**Osservazione**. Il problema maggiore nel lanciare eccezioni all'interno del body di una funzione è che questo fatto non si riflette nella sua firma, quindi il comportamento della funzione **non è codificato a livello del type system** di TypeScript.
+
+Una funzione parziale `f : X ⟶ Y` può essere sempre ricondotta ad una funzione totale `f'` aggiungendo un valore speciale (chiamiamolo `None`) _non appartenente al codominio_ e associandolo ad ogni valore di `X` per cui `f` non é definita
+
+```
+f': X ⟶ Y ∪ None
+```
+
+Chiamiamo `Option(Y) = Y ∪ None`
+
+```
+f': X ⟶ Option(Y)
+```
+
+Torneremo a parlare del tipo `Option` più avanti.
+
+**Suggerimento**. Cercate di definire sempre funzioni totali.
+
+## Strutture dati mutabili
+
+In TypeScript usare strutture dati **mutabili** può condurre ad errori a runtime
+
+```ts
+// chapters/01/mutable.ts
+
+const xs: Array<string> = ['foo', 'bar']
+const ys: Array<string | undefined> = xs
+
+ys.push(undefined)
+
+export const result = xs.map(s => s.trim())
+// runtime error:
+// Cannot read property ’trim’ of undefined
+```
+
+**Suggerimento**. Cercate di usare strutture dati immutabili.
+
+## Il tipo `object`
+
+Il tipo `object` rappresenta tutti i valori meno quelli primitivi (compresi `null` e `undefined`)
+
+```ts
+// chapters/01/object.ts
+
+export const x1: object = { foo: 'bar' }
+
+export const x2: object = [1, 2, 3]
+
+// $ExpectError
+export const x3: object = 1
+
+// $ExpectError
+export const x4: object = 'foo'
+
+// $ExpectError
+export const x5: object = true
+
+// $ExpectError
+export const x6: object = null
+
+// $ExpectError
+export const x7: object = undefined
+```
+
+## I tipi `any`, `never` e `unknown`
+
+Se pensiamo ai tipi come insiemi, allora gli _abitanti_ di un tipo sono gli elementi di quell'insieme.
+
+```ts
+// chapters/01/inhabitants.ts
+
+// gli abitanti sono tutte le stringhe
+export type A = string
+
+// gli abitanti sono tutti i numeri
+export type B = number
+
+// questo `e un "literal type" e contiene un solo abitante:
+// la stringa "foo"
+export type C = 'foo'
+```
+
+**Esercizio**: Quanti abitanti ha questo tipo?
+
+```ts
+export type D = 0 | 1
+```
+
+**Definizione**. Un tipo `A` si dice _sottotipo_ di un tipo `B` se ogni abitante di `A` è abitante di `B`. Si dice _supertipo_ se vale la proprietà inversa.
+
+**Esempio**. Il tipo `C` è sottotipo del tipo `string`. Il tipo `number` è supertipo del tipo `D`.
+
+**Esercizio**. In che relazione sono i seguenti tipi?
+
+```ts
+type T1 = { a: string }
+type T2 = { b: number, a: string }
+```
+
+- `T1` è sottotipo di `T2`?
+- `T2` è sottotipo di `T1`?
+- nessuno dei due
+
+```ts
+type T3 = { a: string, b: boolean }
+type T4 = { b: number, a: string }
+```
+
+- `T3` è sottotipo di `T4`?
+- `T4` è sottotipo di `T3`?
+- nessuno dei due
+
+**Definizione**. Un tipo `B` si dice _bottom type_ se è sottotipo di ogni altro tipo.
+
+Il tipo `never` di TypeScript non contiene abitanti ed è un bottom type.
+
+```ts
+// chapters/01/bottom.ts
+
+export function raise(message: string): never {
+  throw new Error(message)
+}
+
+export function absurd<A>(_x: never): A {
+  return raise('absurd')
+}
+```
+
+**Definizione**. Un tipo `T` si dice top type_ se è supertipo di ogni altro tipo.
+
+Il tipo `any` é sia top type sia bottom type. Viene usato per "disabilitare"
+il type-checker (a volte risulta necessario). Usatelo con parsimonia.
+
+Un problema di `any` é che non é adatto a rappresentare **input non validati**.
+
+**Esempio**. `JSON.parse` è unsafe dato che il tipo di ritorno è `any`.
+
+```ts
+const payload = `{"a":1}`
+const x = JSON.parse(payload)
+// `x` è di tipo `any`
+x.bar.trim() // runtime error: Cannot read property 'trim' of undefined
+```
+
+Fortunatamente esiste una possibile soluzione: utilizzare il tipo `unknown`.
+
+Il tipo `unknown` è un top type ma **non è un bottom type**.
+
+Per poter utilizzare un valore di tipo `unknown` occorre _raffinarlo_
+
+**Esempio**. Un `JSON.parse` type safe (o quasi, può lanciare eccezioni)
+
+```ts
+// chapters/01/parse.ts
+
+export const parse: (input: string) => unknown = JSON.parse
+
+const payload = `{"bar":"foo"}`
+
+const x = parse(payload)
+
+x.bar // static error: Object is of type 'unknown'
+```
+
+**Osservazione**. Come potete vedere dall'esempio ridefinire il tipo di una funzione può essere fatto in modo che non ci sia alcun costo a runtime.
+
+Raffinare un valore vuol dire scrivere del codice specifico che permette di provare al type checker
+alcune caratteristiche sul tipo del valore
+
+```ts
+if (typeof x === 'object') {
+  // x ha tipo object | null
+  if (x !== null) {
+    // x ha tipo object
+    const bar = (x as { [key: string]: unknown }).bar
+    if (typeof bar === 'string') {
+      // bar ha tipo string
+      console.log(bar.trim())
+    }
+  }
+}
+```
+
+Vedremo piu` avanti come sia possibile eliminare il boilerplate utilizzando le _custom type guard_.
 
 # Tour delle feature avanzate
 

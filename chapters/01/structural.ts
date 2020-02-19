@@ -1,3 +1,5 @@
+// chapters/01/structural.ts
+
 export class A {}
 
 class B {}
