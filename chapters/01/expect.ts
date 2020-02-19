@@ -1,5 +1,8 @@
-// $ExpectError
-export const a: string = 1
+// API to test
+declare function sum(a: number, b: number): number
 
-// $ExpectType void
-console.log('hello')
+// $ExpectError
+sum(1, 'a')
+
+// $ExpectType number
+sum(1, 2)

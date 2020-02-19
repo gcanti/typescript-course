@@ -32,16 +32,21 @@ npm install
 npx eslint test/<filename>.ts
 ```
 
-**Osservazione**. Le soluzioni fornite nel repository `typescript-course` costituiscono solo un punto di referimento, **in generale gli esercizi possono ammettere piu` di una soluzione corretta**.
+**Osservazione**. Le soluzioni fornite nel repository `typescript-course` costituiscono solo un punto di referimento, **in generale gli esercizi possono ammettere piu` di una soluzione possibile**.
 
 ### `$ExpectType` e `$ExpectError`
 
 ```ts
-// $ExpectError
-export const a: string = 1
+// chapters/01/expect.ts
 
-// $ExpectType void
-console.log('hello')
+// API to test
+declare function sum(a: number, b: number): number
+
+// $ExpectError
+sum(1, 'a')
+
+// $ExpectType number
+sum(1, 2)
 ```
 
 ## Il type system di TypeScript è strutturale
@@ -51,6 +56,8 @@ console.log('hello')
 **Esempio**. Due classi sono compatibili se sono compatibili i loro campi
 
 ```ts
+// chapters/01/structural.ts
+
 export class A {}
 
 class B {}
@@ -72,6 +79,31 @@ declare function g(c: C): void
 g(new C(1))
 // $ExpectError
 g(new A())
+```
+
+## Funzioni parziali
+
+**Definizione**. Una funzione _parziale_ `f: X -> Y` è una funzione che non è definita per tutti i valori del suo dominio `X` (`Y` è chiamato il _codominio_).
+
+Viceversa una funzione definita per tutti i valori del dominio è detta _totale_.
+
+**Esempio**. La funzione `head`
+
+```ts
+function head(xs: Array<number>): number {
+  return xs[0]
+}
+
+const x: number = head([]) // no error
+```
+
+**Esempio**. La funzione `readFileSync`
+
+```ts
+import * as fs from "fs"
+
+const s: string = fs.readFileSync("", "utf8")
+// throws "no such file or directory"
 ```
 
 # Tour delle feature avanzate
