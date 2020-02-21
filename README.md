@@ -14,6 +14,8 @@
   - [Inline declarations](#inline-declarations)
   - [Polimorfismo](#polimorfismo)
   - [Overloadings](#overloadings)
+  - [Raffinamenti con le custom type guards](#raffinamenti-con-le-custom-type-guards)
+  - [Lifting di un valore: l'operatore `typeof`](#lifting-di-un-valore-loperatore-typeof)
 - [Definition file](#definition-file)
   - [Un problema serio: le API JavaScript](#un-problema-serio-le-api-javascript)
 - [TDD (Type Driven Development)](#tdd-type-driven-development)
@@ -404,6 +406,59 @@ declare function f(xs: Array<number>): Array<number>
 declare function g<A>(xs: Array<A>): Array<A>
 ```
 
+## Overloadings
+
+Gli overloading servono a rendere più precise le firme delle funzioni.
+
+Vediamo un esempio pratico.
+
+- la funzione `f` deve restituire un numero se l'input è una stringa
+- la funzione `f` deve restituire una stringa se l'input è un numero
+
+Usare un'unione non è soddisfacente
+
+```ts
+declare function f(x: string | number): number | string
+
+// x1: string | number
+const x1 = f('foo')
+// x2: string | number
+const x2 = f(1)
+```
+
+Definendo due overloading possiamo rendere preciso il tipo della funzione
+
+```ts
+// chapters/advanced/overloadings.ts
+
+declare function f(x: number): string
+declare function f(x: string): number
+declare function f(x: string | number): number | string
+
+// x3: number
+const x3 = f('foo')
+// x4: string
+const x4 = f(1)
+```
+
+La terza firma di `f` serve solo a guidare l'implementazione e **non comparirà tra quelle disponibili** in fase di utilizzo della funzione.
+
+Gli overloading possono essere definiti anche per i metodi di una classe
+
+```ts
+class G {
+  mymethod(x: number): string
+  mymethod(x: string): number
+  mymethod(x: string | number): number | string {
+    ...
+  }
+}
+```
+
+**Esercizio**. Tipizzare la funzione `pipe` (composizione di funzioni).
+
+[./test/advanced/overloadings/pipe.ts](./test/advanced/overloadings/pipe.ts)
+
 ## Raffinamenti con le custom type guards
 
 Le custom type guard servono a _raffinare_ i tipi. Un raffinemento di un tipo `A` è un tipo `B` tale che per ogni abitante `b` di `B` è anche un abitante di `A`. Un altro modo per esprimere questa condizione è dire che ogni elemento di `B` soddisfa un _predicato_ su `A`.
@@ -529,58 +584,36 @@ Notate però che `Array.isArray` raffina a `Array<any>`.
 
 **Esercizio**. È possibile generalizzare la soluzione precedente? [./test/advanced/custom-type-guards/isArrayOf.ts](./test/advanced/custom-type-guards/isArrayOf.ts)
 
-## Overloadings
+## Lifting di un valore: l'operatore `typeof`
 
-Gli overloading servono a rendere più precise le firme delle funzioni.
+I valori e i tipi vivono in mondi separati, però è possibile passare dal mondo dei valori a quello dei tipi
+sfruttando l'operatore `typeof`.
 
-Vediamo un esempio pratico.
+**Osservazione**. Attenzione, in questo caso non stiamo parlando dell'omonimo operatore `typeof` di JavaScript, che lavora value-level, ma dell'operatore `typeof` di TypeScript, che lavora type-level.
 
-- la funzione `f` deve restituire un numero se l'input è una stringa
-- la funzione `f` deve restituire una stringa se l'input è un numero
-
-Usare un'unione non è soddisfacente
+**Esempio**. Ricavare il tipo di un oggetto
 
 ```ts
-declare function f(x: string | number): number | string
+// chapters/advanced/typeof.ts
 
-// x1: string | number
-const x1 = f('foo')
-// x2: string | number
-const x2 = f(1)
-```
-
-Definendo due overloading possiamo rendere preciso il tipo della funzione
-
-```ts
-// chapters/advanced/overloadings.ts
-
-declare function f(x: number): string
-declare function f(x: string): number
-declare function f(x: string | number): number | string
-
-// x3: number
-const x3 = f('foo')
-// x4: string
-const x4 = f(1)
-```
-
-La terza firma di `f` serve solo a guidare l'implementazione e **non comparirà tra quelle disponibili** in fase di utilizzo della funzione.
-
-Gli overloading possono essere definiti anche per i metodi di una classe
-
-```ts
-class G {
-  mymethod(x: number): string
-  mymethod(x: string): number
-  mymethod(x: string | number): number | string {
-    ...
-  }
+export const x = {
+  foo: 'foo',
+  baz: 1
 }
+
+// value-level ---v
+export const X = typeof x
+// "object"
+
+// type-level ----v
+export type X = typeof x
+/*
+type X = {
+  foo: string;
+  baz: number;
+}
+*/
 ```
-
-**Esercizio**. Tipizzare la funzione `pipe` (composizione di funzioni).
-
-[./test/advanced/overloadings/pipe.ts](./test/advanced/overloadings/pipe.ts)
 
 # Definition file
 
