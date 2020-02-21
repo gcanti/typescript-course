@@ -365,6 +365,170 @@ In molti degli esercizi sfrutteremo questa feature lavorando solo sulle dichiara
 Una funzione viene detta _polimorfica_ se può gestire diversi tipi parametrizzati da uno o più _type parameter_,
 _monomorfica_ altrimenti.
 
+```ts
+// una funzione monomorfica
+declare function fst(tuple: [number, number]): number
+
+// una funzione polimorfica
+declare function fst<A>(tuple: [A, A]): A
+```
+
+Le funzioni polimorfiche favoriscono una implementazione corretta:
+
+```ts
+// compila
+function fst(xs: tuple: [number, number]): number {
+  return 1
+}
+
+// non compila
+function fst<A>(tuple: [A, A]): A {
+  return 1
+}
+```
+
+Esempio notevole è la funzione identità che ammette una sola implementazione possibile
+
+```ts
+function identity<A>(a: A): A {
+  return a
+}
+```
+
+**Suggerimento**. Quando possibile, cercate di definire funzioni polimorfiche.
+
+**Esercizio**. Date le firme delle seguenti funzioni, cosa possiamo dire del loro comportamento?
+
+```ts
+declare function f(xs: Array<number>): Array<number>
+declare function g<A>(xs: Array<A>): Array<A>
+```
+
+## Raffinamenti con le custom type guards
+
+Le custom type guard servono a _raffinare_ i tipi. Un raffinemento di un tipo `A` è un tipo `B` tale che per ogni abitante `b` di `B` è anche un abitante di `A`. Un altro modo per esprimere questa condizione è dire che ogni elemento di `B` soddisfa un _predicato_ su `A`.
+
+**Definizione**. Un _predicato_ (sul tipo `A`) è una funzione con la seguente firma:
+
+```ts
+type Predicate<A> = (a: A) => boolean
+```
+
+**Esempio**. In TypeScript la sintassi per definire un predicato non è sufficiente per raffinare un tipo
+
+```ts
+// chapters/advanced/refinements-I.ts
+
+export function isString(x: unknown): boolean {
+  return typeof x === 'string'
+}
+
+export function f(x: string | number): number {
+  if (isString(x)) {
+    // qui x non è raffinato
+    return x.length // error
+  } else {
+    return x // error
+  }
+}
+```
+
+Invece viene utilizzata questa sintassi (che definisce una _custom type guard_):
+
+```ts
+type Refinement<A, B extends A> = (a: A) => a is B
+```
+
+**Osservazione**. Notate che `B` _deve essere assegnabile_ ad `A`.
+O, in altre parole, `B` deve essere un sottotipo di `A`.
+
+> La keyword `extends` può essere usata per _mettere in relazione_ due type parameter
+
+In particolare `extends` viene spesso usata per definire dei vincoli su di un type parameter
+che siano basati su un altro type parameter (come nel tipo `Refinement`).
+
+**Esempio**.
+
+```ts
+// chapters/advanced/refinements-II.ts
+
+export function isString(x: unknown): x is string {
+  return typeof x === 'string'
+}
+
+export function f(x: string | number): number {
+  if (isString(x)) {
+    // qui x è di tipo string
+    return x.length
+  } else {
+    // qui x è di tipo number
+    return x
+  }
+}
+```
+
+**Esempio**. Riprendiamo l'esempio del capitolo precedentemente
+
+```ts
+// chapters/advanced/refinements-III.ts
+
+export const parse: (input: string) => unknown = JSON.parse
+
+const payload = `{"bar":"foo"}`
+
+const x = parse(payload)
+
+/*
+if (typeof x === 'object') {
+  // x ha tipo object | null
+  if (x !== null) {
+    // x ha tipo object
+    const bar = (x as { [key: string]: unknown }).bar
+    if (typeof bar === 'string') {
+      // bar ha tipo string
+      console.log(bar.trim())
+    }
+  }
+}
+*/
+
+function isString(u: unknown): u is string {
+  return typeof u === 'string'
+}
+
+function isUnknownRecord(u: unknown): u is { [key: string]: unknown } {
+  return Object.prototype.toString.call(u) === '[object Object]'
+}
+
+if (isUnknownRecord(x)) {
+  // qui x è di tipo { [key: string]: unknown }
+  if (isString(x.bar)) {
+    // qui x.bar è di tipo string
+    console.log(x.bar.trim())
+  }
+}
+```
+
+**Esempio**. Alcune custom type guard sono predefinite, un esempio notevole è `Array.isArray`
+
+```ts
+const payload = '{"bar":[1,2,3]}'
+const x = parse(payload)
+
+if (Array.isArray(x)) {
+  // x ha tipo Array<any>
+  console.log(x.keys)
+}
+```
+
+Notate però che `Array.isArray` raffina a `Array<any>`.
+
+**Esercizio**. Definire **e implementare** una versione di `Array.isArray` migliore [./test/advanced/custom-type-guards/isArray.ts](./test/advanced/custom-type-guards/isArray.ts).
+
+**Esercizio**. Definire **e implementare** una custom type guard che raffina un tipo `unknown` in un `Array<number>` [./test/advanced/custom-type-guards/isArrayOfNumbers.ts](./test/advanced/custom-type-guards/isArrayOfNumbers.ts).
+
+**Esercizio**. È possibile generalizzare la soluzione precedente? [./test/advanced/custom-type-guards/isArrayOf.ts](./test/advanced/custom-type-guards/isArrayOf.ts)
+
 ## Overloadings
 
 Gli overloading servono a rendere più precise le firme delle funzioni.
