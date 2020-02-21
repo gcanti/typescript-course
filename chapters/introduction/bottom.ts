@@ -1,4 +1,4 @@
-// chapters/01/bottom.ts
+// chapters/introduction/bottom.ts
 
 export function raise(message: string): never {
   throw new Error(message)

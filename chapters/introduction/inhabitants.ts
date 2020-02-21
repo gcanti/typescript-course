@@ -1,4 +1,4 @@
-// chapters/01/inhabitants.ts
+// chapters/introduction/inhabitants.ts
 
 // gli abitanti sono tutte le stringhe
 export type A = string

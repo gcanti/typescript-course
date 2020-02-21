@@ -1,4 +1,4 @@
-// chapters/01/parse.ts
+// chapters/introduction/parse.ts
 
 export const parse: (input: string) => unknown = JSON.parse
 

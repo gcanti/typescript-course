@@ -1,4 +1,4 @@
-// chapters/01/expect.ts
+// chapters/introduction/expect.ts
 
 // API to test
 declare function sum(a: number, b: number): number

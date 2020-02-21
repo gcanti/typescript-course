@@ -1,6 +1,5 @@
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Introduzione](#introduzione)
   - [Setup](#setup)
@@ -12,7 +11,11 @@
   - [Il tipo `object`](#il-tipo-object)
   - [I tipi `any`, `never` e `unknown`](#i-tipi-any-never-e-unknown)
 - [Tour delle feature avanzate](#tour-delle-feature-avanzate)
+  - [Inline declarations](#inline-declarations)
+  - [Polimorfismo](#polimorfismo)
+  - [Overloadings](#overloadings)
 - [Definition file](#definition-file)
+  - [Un problema serio: le API JavaScript](#un-problema-serio-le-api-javascript)
 - [TDD (Type Driven Development)](#tdd-type-driven-development)
 - [ADT (Algebraic Data Types)](#adt-algebraic-data-types)
 - [Error handling funzionale](#error-handling-funzionale)
@@ -33,7 +36,7 @@
 Questo corso mira ad esporre una serie di tecniche per sfruttare al massimo la _type safety_ che offre il linguaggio TypeScript.
 
 > Type safe usually refers to languages that ensure that an operation is working on the right kind of data at some point
-before the operation is actually performed. This may be at compile time or at runtime.
+> before the operation is actually performed. This may be at compile time or at runtime.
 
 **Obbiettivo**. (ambizioso) eliminare gli errori a runtime.
 
@@ -59,7 +62,7 @@ npx eslint test/<filename>.ts
 ### `$ExpectType` e `$ExpectError`
 
 ```ts
-// chapters/01/expect.ts
+// chapters/introduction/expect.ts
 
 // API to test
 declare function sum(a: number, b: number): number
@@ -78,7 +81,7 @@ sum(1, 2)
 **Esempio**. Due classi sono compatibili se sono compatibili i loro campi
 
 ```ts
-// chapters/01/structural.ts
+// chapters/introduction/structural.ts
 
 export class A {}
 
@@ -114,7 +117,7 @@ Viceversa una funzione definita per tutti i valori del dominio è detta _totale_
 **Esempio**. La funzione `head`
 
 ```ts
-// chapters/01/head.ts
+// chapters/introduction/head.ts
 
 function head(xs: Array<number>): number {
   return xs[0]
@@ -126,7 +129,7 @@ export const result: number = head([]) // no error
 **Esempio**. La funzione `readFileSync`
 
 ```ts
-// chapters/01/readFileSync.ts
+// chapters/introduction/readFileSync.ts
 
 import * as fs from 'fs'
 
@@ -157,7 +160,7 @@ Torneremo a parlare del tipo `Option` più avanti.
 In TypeScript usare strutture dati **mutabili** può condurre ad errori a runtime
 
 ```ts
-// chapters/01/mutable.ts
+// chapters/introduction/mutable.ts
 
 const xs: Array<string> = ['foo', 'bar']
 const ys: Array<string | undefined> = xs
@@ -176,7 +179,7 @@ export const result = xs.map(s => s.trim())
 Il tipo `object` rappresenta tutti i valori meno quelli primitivi (compresi `null` e `undefined`)
 
 ```ts
-// chapters/01/object.ts
+// chapters/introduction/object.ts
 
 export const x1: object = { foo: 'bar' }
 
@@ -203,7 +206,7 @@ export const x7: object = undefined
 Se pensiamo ai tipi come insiemi, allora gli _abitanti_ di un tipo sono gli elementi di quell'insieme.
 
 ```ts
-// chapters/01/inhabitants.ts
+// chapters/introduction/inhabitants.ts
 
 // gli abitanti sono tutte le stringhe
 export type A = string
@@ -230,7 +233,7 @@ export type D = 0 | 1
 
 ```ts
 type T1 = { a: string }
-type T2 = { b: number, a: string }
+type T2 = { b: number; a: string }
 ```
 
 - `T1` è sottotipo di `T2`?
@@ -238,8 +241,8 @@ type T2 = { b: number, a: string }
 - nessuno dei due
 
 ```ts
-type T3 = { a: string, b: boolean }
-type T4 = { b: number, a: string }
+type T3 = { a: string; b: boolean }
+type T4 = { b: number; a: string }
 ```
 
 - `T3` è sottotipo di `T4`?
@@ -251,7 +254,7 @@ type T4 = { b: number, a: string }
 Il tipo `never` di TypeScript non contiene abitanti ed è un bottom type.
 
 ```ts
-// chapters/01/bottom.ts
+// chapters/introduction/bottom.ts
 
 export function raise(message: string): never {
   throw new Error(message)
@@ -262,7 +265,7 @@ export function absurd<A>(_x: never): A {
 }
 ```
 
-**Definizione**. Un tipo `T` si dice top type_ se è supertipo di ogni altro tipo.
+**Definizione**. Un tipo `T` si dice top type\_ se è supertipo di ogni altro tipo.
 
 Il tipo `any` é sia top type sia bottom type. Viene usato per "disabilitare"
 il type-checker (a volte risulta necessario). Usatelo con parsimonia.
@@ -287,7 +290,7 @@ Per poter utilizzare un valore di tipo `unknown` occorre _raffinarlo_
 **Esempio**. Un `JSON.parse` type safe (o quasi, può lanciare eccezioni)
 
 ```ts
-// chapters/01/parse.ts
+// chapters/introduction/parse.ts
 
 export const parse: (input: string) => unknown = JSON.parse
 
@@ -321,7 +324,123 @@ Vedremo piu` avanti come sia possibile eliminare il boilerplate utilizzando le _
 
 # Tour delle feature avanzate
 
+## Inline declarations
+
+Un _definition file_ contiene solo dichiarazioni di tipi e servono a descrivere le API pubbliche di una package.
+I definition file costituiscono un ponte tra il mondo untyped di JavaScript e quello types di TypeScript.
+Tipicamente il nome di un definition file termina con `.d.ts`.
+
+Le dichiarazione all'interno del codice invece che nei definition file sono particolarmente utili quando si stia esplorando
+una soluzione e per fare velocemente delle prove di type checking.
+
+**Esempio**. Costanti, variabili, funzioni e classi
+
+```ts
+// chapters/advanced/inline-declarations.ts
+
+// costanti
+export declare const a: number
+
+// variabili
+export declare let b: number
+
+// funzioni
+export declare function f(x: string): number
+export declare const g: (x: string) => number
+
+// classi
+export declare class Foo {
+  public value: string
+  constructor(value: string)
+}
+```
+
+In molti degli esercizi sfrutteremo questa feature lavorando solo sulle dichiarazioni invece di preoccuparci dell'implementazione.
+
+## Polimorfismo
+
+> Parametric polymorphism refers to when the type of a value contains one or more (unconstrained) type variables,
+> so that the value may adopt any type that results from substituting those variables with concrete types.
+
+Una funzione viene detta _polimorfica_ se può gestire diversi tipi parametrizzati da uno o più _type parameter_,
+_monomorfica_ altrimenti.
+
+## Overloadings
+
+Gli overloading servono a rendere più precise le firme delle funzioni.
+
+Vediamo un esempio pratico.
+
+- la funzione `f` deve restituire un numero se l'input è una stringa
+- la funzione `f` deve restituire una stringa se l'input è un numero
+
+Usare un'unione non è soddisfacente
+
+```ts
+declare function f(x: string | number): number | string
+
+// x1: string | number
+const x1 = f('foo')
+// x2: string | number
+const x2 = f(1)
+```
+
+Definendo due overloading possiamo rendere preciso il tipo della funzione
+
+```ts
+// chapters/advanced/overloadings.ts
+
+declare function f(x: number): string
+declare function f(x: string): number
+declare function f(x: string | number): number | string
+
+// x3: number
+const x3 = f('foo')
+// x4: string
+const x4 = f(1)
+```
+
+La terza firma di `f` serve solo a guidare l'implementazione e **non comparirà tra quelle disponibili** in fase di utilizzo della funzione.
+
+Gli overloading possono essere definiti anche per i metodi di una classe
+
+```ts
+class G {
+  mymethod(x: number): string
+  mymethod(x: string): number
+  mymethod(x: string | number): number | string {
+    ...
+  }
+}
+```
+
+**Esercizio**. Tipizzare la funzione `pipe` (composizione di funzioni).
+
+[./test/advanced/overloadings/pipe.ts](./test/advanced/overloadings/pipe.ts)
+
 # Definition file
+
+Un definition file contiene solo dichiarazioni di tipi e servono a descrivere le API pubbliche di una package.
+Tipicamente il nome di un definition file termina con `.d.ts`.
+
+E' possibile far generare a TypeScript i definition file dei moduli scritti in TypeScript impostando nel `tsconfig.json` il flag `declaration: true`.
+
+## Un problema serio: le API JavaScript
+
+Le API delle librerie JavaScript sono pensate per essere ergonomiche e consumate da JavaScript,
+aggiungere un definition file a posteriori è spesso problematico.
+
+In più spesso i definition file ufficiali non sono del tutto soddisfacenti.
+
+Possibili soluzioni:
+
+- cambiare libreria
+- definire un custom definition file
+- definire una funzione wrapper con una tipizzazione sana
+- castare ad una tipizzazione sana
+- module augmentation / declaration merging
+
+TODO: esempio per ciascuna di queste opzioni
 
 # TDD (Type Driven Development)
 

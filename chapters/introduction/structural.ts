@@ -1,4 +1,4 @@
-// chapters/01/structural.ts
+// chapters/introduction/structural.ts
 
 export class A {}
 

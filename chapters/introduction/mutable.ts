@@ -1,4 +1,4 @@
-// chapters/01/mutable.ts
+// chapters/introduction/mutable.ts
 
 const xs: Array<string> = ['foo', 'bar']
 const ys: Array<string | undefined> = xs

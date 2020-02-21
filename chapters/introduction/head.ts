@@ -1,4 +1,4 @@
-// chapters/01/head.ts
+// chapters/introduction/head.ts
 
 function head(xs: Array<number>): number {
   return xs[0]

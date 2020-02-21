@@ -1,4 +1,4 @@
-// chapters/01/object.ts
+// chapters/introduction/object.ts
 
 export const x1: object = { foo: 'bar' }
 

@@ -1,4 +1,4 @@
-// chapters/01/readFileSync.ts
+// chapters/introduction/readFileSync.ts
 
 import * as fs from 'fs'
 

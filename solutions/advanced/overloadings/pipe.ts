@@ -2,7 +2,12 @@
 // source
 // ------------------------------------------------------
 
-declare function pipe(...f: Array<Function>): Function
+declare function pipe<A, B, C, D>(
+  ab: (a: A) => B,
+  bc: (b: B) => C,
+  cd: (c: C) => D
+): (a: A) => D
+declare function pipe<A, B, C>(ab: (a: A) => B, bc: (b: B) => C): (a: A) => C
 
 // ------------------------------------------------------
 // tests
