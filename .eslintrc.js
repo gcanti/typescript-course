@@ -8,5 +8,8 @@ module.exports = {
     'plugin:@typescript-eslint/eslint-recommended',
     'plugin:@typescript-eslint/recommended',
     'plugin:eslint-plugin-expect-type/recommended'
-  ]
+  ],
+  rules: {
+    '@typescript-eslint/member-delimiter-style': 0
+  }
 }
