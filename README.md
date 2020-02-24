@@ -714,6 +714,164 @@ interface Person {
 
 [./test/advanced/immutability/interface.ts](./test/advanced/immutability/interface.ts)
 
+## Index types
+
+### Index type query operator: `keyof`
+
+Così come è possibile, dato un oggetto, ricavare **il valore** delle chiavi tramite la funzione `Object.keys`
+
+```ts
+const point = { x: 1, y: 2 }
+const pointKeys = Object.keys(point)
+// [ "x", "y" ]
+```
+
+così è possibile ricavare **il tipo** delle chiavi di un oggetto (come unione) usando l'operatore `keyof`
+
+```ts
+interface Point {
+  x: number
+  y: number
+}
+
+type PointKeys = keyof Point
+/*
+type PointKeys = "x" | "y"
+*/
+```
+
+`keyof` può operare anche sugli array
+
+```ts
+type ArrayKeys = keyof Array<number>
+/*
+type ArrayKeys = number | "length" | "toString" |
+"toLocaleString" | "push" | "pop" | "concat" | "join" |
+"reverse" | "shift" | "slice" | "sort" | "splice" |
+"unshift" | "indexOf" | "lastIndexOf" | "every" | "some" |
+"forEach" | "map" | "filter" | "reduce" | "reduceRight" |
+"entries" | "keys" | "values" | "find" | "findIndex" |
+"fill" | "copyWithin"
+*/
+```
+
+e le tuple
+
+```ts
+type TupleKeys = keyof [string, number]
+/*
+type TupleKeys = number | "0" | "1" | "length" | "toString" |
+"toLocaleString" | "push" | "pop" | "concat" | "join" |
+"reverse" | "shift" | "slice" | "sort" | "splice" |
+"unshift" | "indexOf" | "lastIndexOf" | "every" |
+"some" | "forEach" | "map" | "filter" | "reduce" |
+"reduceRight" | "entries" | "keys" | "values" |
+"find" | "findIndex" | "fill" | "copyWithin"
+*/
+```
+
+**Esercizio**. Rendere type safe la seguente funzione `translate`
+
+```ts
+export const translations = {
+  when: 'Quando',
+  where: 'Dove'
+}
+
+export declare function translate(key: string): string
+```
+
+[./test/advanced/typeof/translate.ts](./test/advanced/typeof/translate.ts)
+
+### Indexed access operator: `[]`
+
+Così come è possibile, dato un oggetto, ricavare il valore di una sua proprietà usando l'accesso per indice
+
+```ts
+const person = { name: 'Giulio', age: 44 }
+const name = person['name']
+```
+
+così l'operatore `T[K]` permette di estrarre il tipo del campo `K` dal tipo `T`
+
+```ts
+interface Person {
+  name: string
+  age: number
+}
+
+type Name = Person['name']
+/*
+type Name = string
+*/
+
+type Age = Person['age']
+/*
+type Age = number
+*/
+
+Person['foo'] // error
+```
+
+**Esercizio**. Ricavare il tipo del campo `baz` della seguente interfaccia
+
+```ts
+export interface Foo {
+  foo: {
+    bar: {
+      baz: number
+      quux: string
+    }
+  }
+}
+```
+
+[./test/advanced/indexed-access-operator/Foo.ts](./test/advanced/indexed-access-operator/Foo.ts)
+
+**Esercizio**. Ricavare il tipo delle chiavi del campo `bar` dell'interfaccia `Foo` definita nel precedente esercizio.
+
+[./test/advanced/indexed-access-operator/bar.ts](./test/advanced/indexed-access-operator/bar.ts)
+
+**Esercizio**. Tipizzare la seguente funzione `get` in modo che gli argomenti e il tipo di ritorno siano i più precisi possibile
+
+```ts
+declare function get(key: string, obj: unknown): unknown
+```
+
+[./test/advanced/indexed-access-operator/get.ts](./test/advanced/indexed-access-operator/get.ts)
+
+**Esercizio**. Estrarre il tipo della prima e della seconda componente della seguente tupla
+
+```ts
+export type Tuple = [number, string, boolean]
+```
+
+[./test/advanced/indexed-access-operator/tuple.ts](./test/advanced/indexed-access-operator/tuple.ts)
+
+**Osservazione**. Come è possibile estrarre l'**unione** dei tipi di una tupla? Accedendo con l'indice generico `number`
+
+```ts
+export type X = [string, number]
+
+export type ValuesOfX = X[number]
+```
+
+**Esercizio**. Tipizzare la seguente funzione `set` in modo che gli argomenti e il tipo di ritorno siano i più precisi possibile
+
+```ts
+export declare function set(k: string, v: unknown, o: unknown): unknown
+```
+
+[./test/advanced/indexed-access-operator/set.ts](./test/advanced/indexed-access-operator/set.ts)
+
+**Osservazione**. Si noti che `Object.keys` è tipizzato così
+
+```ts
+Object.keys: (o: {}) => string[]
+```
+
+**Esercizio**. Perchè? E' possibile rendere il tipo più preciso?
+
 # Definition file
 
 Un definition file contiene solo dichiarazioni di tipi e servono a descrivere le API pubbliche di una package.
