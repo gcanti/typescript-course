@@ -23,6 +23,7 @@
   - [Mapped types](#mapped-types)
   - [Subtyping e type parameter](#subtyping-e-type-parameter)
   - [Module augmentation](#module-augmentation)
+  - [Conditional types](#conditional-types)
 - [Definition file](#definition-file)
   - [Un problema serio: le API JavaScript](#un-problema-serio-le-api-javascript)
 - [TDD (Type Driven Development)](#tdd-type-driven-development)
@@ -1078,6 +1079,170 @@ Foo.prototype.doSomethingElse = function() {
 
 new Foo().doSomethingElse() // ok
 ```
+
+## Conditional types
+
+I _conditional types_ hanno la seguente sintassi (simile all'operatore ternario)
+
+```ts
+T extends U ? X : Y
+```
+
+Questa scrittura significa:
+
+> se `T` è assegnabile a `U` allora il tipo risultante è `X`, altrimenti è `Y`
+
+**Esempio**. Tipizzare l'operatore `typeof`
+
+```ts
+// chapters/advanced/conditional-types/typeof.ts
+
+export type TypeName<T> = T extends string
+  ? 'string'
+  : T extends number
+  ? 'number'
+  : T extends boolean
+  ? 'boolean'
+  : T extends undefined
+  ? 'undefined'
+  : T extends Function
+  ? 'function'
+  : 'object'
+
+// $ExpectType "string"
+export type T0 = TypeName<string>
+// $ExpectType "string"
+export type T1 = TypeName<'a'>
+// $ExpectType "boolean"
+export type T2 = TypeName<true>
+// $ExpectType "function"
+export type T3 = TypeName<() => void>
+// $ExpectType "object"
+export type T4 = TypeName<string[]>
+```
+
+I conditional types _distribuiscono_ le unioni, ovvero se per esempio
+
+```ts
+T extends U ? X : Y
+```
+
+è istanziato con `T = A | B | C`, allora il conditional type è risolto come
+
+```ts
+  (A extends U ? X : Y)
+| (B extends U ? X : Y)
+| (C extends U ? X : Y)
+```
+
+Vediamo qualche tipo built-in che sfrutta i conditional types
+
+**Esempio**. `Exclude`
+
+```ts
+/**
+ * Exclude from T those types that are assignable to U
+ */
+type Exclude<T, U> = T extends U ? never : T
+```
+
+Vediamo come funziona con un esempio concreto
+
+```ts
+// voglio una copia di `Person` tranne il campo `age`
+export interface Person {
+  firstName: string
+  lastName: string
+  age: number
+}
+
+export type NotAge = Exclude<keyof Person, 'age'>
+
+type Explanation =
+  | ('firstName' extends 'age' ? never : 'firstName')
+  | ('lastName' extends 'age' ? never : 'lastName')
+  | ('age' extends 'age' ? never : 'age')
+
+export type Result = Pick<Person, NotAge>
+/* same as
+type Result = {
+    firstName: string;
+    lastName: string;
+}
+*/
+```
+
+**Esempio**. `Extract`
+
+```ts
+/**
+ * Extract from T those types that are assignable to U
+ */
+type Extract<T, U> = T extends U ? T : never
+```
+
+**Esempio**. `NonNullable`
+
+```ts
+/**
+ * Exclude null and undefined from T
+ */
+type NonNullable<T> = T extends null | undefined ? never : T
+```
+
+**Esempio**. `Omit`
+
+```ts
+/**
+ * Construct a type with the properties of T except for those in type K.
+ */
+type Omit<T, K extends keyof any> = Pick<T, Exclude<keyof T, K>>
+```
+
+Nell clausola `extends` di un conditional type è possibile utilizzare la keyword `infer` per introdurre
+una type variable da far inferire al type checker. Queste type variable possono essere poi utilizzate nel ramo positivo
+del conditional type.
+
+**Esempio**. `ReturnType`
+
+```ts
+/**
+ * Obtain the return type of a function type
+ */
+type ReturnType<T extends (...args: any[]) => any> = T extends (
+  ...args: any[]
+) => infer R
+  ? R
+  : any
+```
+
+**Esercizio**. Ricavare le chiavi di `X` che hanno valori di tipo `string`
+
+```ts
+export interface X {
+  a: string
+  b: number
+  c: string
+}
+```
+
+[./test/advanced/conditional-types/string-keys.ts](./test/advanced/conditional-types/string-keys.ts)
+
+**Esercizio**. Tipizzare la funzione `remove`
+
+```ts
+export declare function remove(o: object, k: string): unknown
+```
+
+[./test/advanced/conditional-types/remove.ts](./test/advanced/conditional-types/remove.ts)
+
+**Esercizio**. Tipizzare la funzione `omit`
+
+```ts
+export declare function omit(o: object, keys: Array<string>): unknown
+```
+
+[./test/advanced/conditional-types/omit.ts](./test/advanced/conditional-types/omit.ts)
 
 # Definition file
 
