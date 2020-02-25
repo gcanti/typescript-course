@@ -1000,6 +1000,46 @@ export declare function pick(ks: Array<string>, o: object): unknown
 
 TODO: altri esercizi sui mapped type
 
+## Subtyping e type parameter
+
+Come abbiamo gà visto la keyword `extends` può essere usata per esprimere una relazione tra type parameter, una relazione di _subtyping_.
+
+```
+A extends B
+```
+
+significa che `A` deve essere un sottotipo di `B`.
+
+Vediamo un esempio in cui questa feature risulta utile: definire un getter generico.
+
+```ts
+interface Person {
+  name: string
+  age: number
+}
+
+const getName = (p: Person): string => p.name
+```
+
+La funzione `getName` è fin troppo restrittiva, accetta in input un tipo `Person` ma, data l'implementazione,
+potrebbe lavorare su qualsiasi record che contiene un campo `name` di tipo `string`
+
+```ts
+function getName<T extends { name: string }>(x: T): string {
+  return x.name
+}
+```
+
+**Esercizio**. Generalizzare `getName` in modo che lavori con qualsiasi tipo che abbia una proprietà `name`,
+indipendentemente dal suo tipo
+
+[./test/advanced/extends/getName.ts](./test/advanced/extends/getName.ts)
+
+**Esercizio**. `getName` è una funzione che lavora su un campo specifico (`name`), definire
+una funzione `getter` che, dato il nome di un campo, restituisce il getter corrispondente.
+
+[./test/advanced/extends/getter.ts](./test/advanced/extends/getter.ts)
+
 # Definition file
 
 Un definition file contiene solo dichiarazioni di tipi e servono a descrivere le API pubbliche di una package.
