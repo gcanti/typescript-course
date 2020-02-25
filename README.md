@@ -24,6 +24,8 @@
   - [Subtyping e type parameter](#subtyping-e-type-parameter)
   - [Module augmentation](#module-augmentation)
   - [Conditional types](#conditional-types)
+  - [Mapped tuples](#mapped-tuples)
+  - [`as const`](#as-const)
 - [Definition file](#definition-file)
   - [Un problema serio: le API JavaScript](#un-problema-serio-le-api-javascript)
 - [TDD (Type Driven Development)](#tdd-type-driven-development)
@@ -1243,6 +1245,97 @@ export declare function omit(o: object, keys: Array<string>): unknown
 ```
 
 [./test/advanced/conditional-types/omit.ts](./test/advanced/conditional-types/omit.ts)
+
+## Mapped tuples
+
+Fino alla versione `3.0` i rest parameter erano tipizzabili esclusivamente con `Array`
+
+**Esempio**. La funzione `Math.min`
+
+```ts
+/**
+ * Returns the smaller of a set of supplied numeric
+ * expressions.
+ */
+min(...values: Array<number>): number
+```
+
+Nel caso di `min` tipizzare con `Array` è corretto dato che i parametri sono omogenei (tutti di tipo `number`), ma come è possibile gestire parametri con tipi diversi?
+
+**Esempio**. La funzione di utility `tuple`.
+
+Per capire perchè dovremmo aver bisogno di una tale funzione di utility si consideri il seguente
+
+```ts
+// x: (string | number)[]
+const x = [1, 'foo']
+```
+
+Qui vorremmo che TypeScript inferisse `x: [number, string]` ma di default il type checker inferisce un valore di tipo `Array`.
+
+Per ovviare a questo problema possiamo definire:
+
+```ts
+export function tuple<A, B>(a: A, b: B): [A, B] {
+  return [a, b]
+}
+
+// x: [number, string]
+const x = tuple(1, 'foo')
+```
+
+E se volessimo una tupla con 3 componenti? Possiamo definire degli overloading ma è scomodo e il numero di overloading è arbitrario
+
+```ts
+function tuple<A, B, C>(a: A, b: B, c: C): [A, B, C]
+function tuple<A, B>(a: A, b: B): [A, B]
+function tuple(...t: Array<unknown>): Array<unknown> {
+  return t
+}
+
+// y: [number, string, boolean]
+const y = tuple(1, 'foo', true)
+```
+
+Oppure possiamo gestire un numero variabile di argomenti sfruttando le nuove capacità della versione `3.1`
+
+```ts
+// chapters/advanced/tuple.ts
+
+export function tuple<T extends Array<unknown>>(...t: T): T {
+  return t
+}
+
+// x: [number, string]
+export const x = tuple(1, 'foo')
+// y: [number, string, boolean]
+export const y = tuple(1, 'foo', true)
+```
+
+È possibile mappare le tuple così come abbiamo visto fare con i mapped type
+
+```ts
+// chapters/advanced/toPairs.ts
+
+declare function toPairs<T extends Array<unknown>>(
+  ...t: T
+): { [K in keyof T]: [K, T[K]] }
+
+// const x: [["0", number], ["1", string], ["2", boolean]]
+const x = toPairs(1, 's', true)
+```
+
+**Esercizio**. Tipizzare la seguente funzione `all` in modo che preservi le tuple
+
+```ts
+export declare function all(ps: Array<Promise<unknown>>): Promise<unknown>
+```
+
+[./test/advanced/mapped-tuples/all.ts](./test/advanced/mapped-tuples/all.ts)
+
+## `as const`
+
+TODO
 
 # Definition file
 
