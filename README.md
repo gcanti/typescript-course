@@ -16,6 +16,13 @@
   - [Overloadings](#overloadings)
   - [Raffinamenti con le custom type guards](#raffinamenti-con-le-custom-type-guards)
   - [Lifting di un valore: l'operatore `typeof`](#lifting-di-un-valore-loperatore-typeof)
+  - [Immutabilità: il modificatore `readonly`](#immutabilit%C3%A0-il-modificatore-readonly)
+  - [Index types](#index-types)
+    - [Index type query operator: `keyof`](#index-type-query-operator-keyof)
+    - [Indexed access operator: `[]`](#indexed-access-operator-)
+  - [Mapped types](#mapped-types)
+  - [Subtyping e type parameter](#subtyping-e-type-parameter)
+  - [Module augmentation](#module-augmentation)
 - [Definition file](#definition-file)
   - [Un problema serio: le API JavaScript](#un-problema-serio-le-api-javascript)
 - [TDD (Type Driven Development)](#tdd-type-driven-development)
@@ -1039,6 +1046,38 @@ indipendentemente dal suo tipo
 una funzione `getter` che, dato il nome di un campo, restituisce il getter corrispondente.
 
 [./test/advanced/extends/getter.ts](./test/advanced/extends/getter.ts)
+
+## Module augmentation
+
+La _module augmentation_ è una feature che permette di arricchire il tipo di una entità che non sia in nostro possesso.
+
+**Esempio**. Riaprire una classe modificandone il `prototype`
+
+```ts
+// chapters/advanced/module-augmentation-I.ts
+
+export class Foo {
+  doSomething(): string {
+    return 'foo'
+  }
+}
+
+// chapters/advanced/module-augmentation-II.ts
+
+import { Foo } from './module-augmentation-I'
+
+declare module './module-augmentation-I' {
+  interface Foo {
+    doSomethingElse(): number
+  }
+}
+
+Foo.prototype.doSomethingElse = function() {
+  return this.doSomething().length
+}
+
+new Foo().doSomethingElse() // ok
+```
 
 # Definition file
 
