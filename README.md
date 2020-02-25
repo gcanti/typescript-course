@@ -645,7 +645,7 @@ interface ImmutableRecord {
 
 declare const r: ImmutableRecord
 
-r['foo'] = 1 // Index signature in type 'ImmutableDictionary' only permits reading
+r['foo'] = 1 // Index signature in type 'ImmutableRecord' only permits reading
 
 //
 // Per rendere immutabile un tipo già definito è possibile usare il tipo predefinito `Readonly`.
@@ -871,6 +871,134 @@ Object.keys: (o: {}) => string[]
 ```
 
 **Esercizio**. Perchè? E' possibile rendere il tipo più preciso?
+
+## Mapped types
+
+TypeScript fornisce un modo per creare nuovi tipi basati su tipi già definiti, i _mapped types_.
+
+La formula generale di un mapped type è la seguente
+
+```
+{ [K in U] : f(K) }
+```
+
+ove
+
+- `K` è una variabile
+- `U` è una unione
+- `f` è una funzione di `K`
+
+**Esempio**. Creare un _option object_
+
+```ts
+export type Flag = 'option1' | 'option2' | 'option3'
+
+export type Options = { [K in Flag]: boolean }
+/*
+type Options = {
+    option1: boolean;
+    option2: boolean;
+    option3: boolean;
+}
+*/
+```
+
+Come soluzione è possibile anche usare il tipo predefinito `Record` (per la sua definizione vedi oltre)
+
+```ts
+type Options = Record<Flag, boolean>
+```
+
+**Esercizio**. Derivare un record di predicati dalla seguente interfaccia
+
+```ts
+export interface X {
+  a: string
+  b: number
+  c: boolean
+}
+```
+
+[./test/advanced/mapped-types/predicates.ts](./test/advanced/mapped-types/predicates.ts)
+
+**Esercizio**. Dato lo string literal type
+
+```ts
+export type Key = 'foo'
+```
+
+derivare il tipo
+
+```ts
+export type Singleton = {
+  foo: number
+}
+```
+
+[./test/advanced/mapped-types/singleton.ts](./test/advanced/mapped-types/singleton.ts)
+
+Vediamo ora qualche tipo (pre)definito definito grazie a questa feature
+
+**Esempio**. `Partial<T>`
+
+```ts
+/**
+ * Make all properties in T optional
+ */
+type Partial<T> = { [P in keyof T]?: T[P] }
+```
+
+**Osservazione**. Il modificatore `?` rende opzionali tutti i campi.
+
+**Esempio**. `Required<T>`
+
+```ts
+/**
+ * Make all properties in T required
+ */
+type Required<T> = { [P in keyof T]-?: T[P] }
+```
+
+**Osservazione**. Il modificatore `-?` rende obbligatori tutti i campi.
+
+**Esempio**. `Readonly<T>`
+
+```ts
+/**
+ * Make all properties in T readonly
+ */
+type Readonly<T> = { readonly [P in keyof T]: T[P] }
+```
+
+**Osservazione**. Il modificatore `readonly` rende tutti i campi in sola lettura (per un solo livello).
+
+**Esempio**. `Pick<T, K>`
+
+```ts
+/**
+ * From T pick a set of properties K
+ */
+type Pick<T, K extends keyof T> = { [P in K]: T[P] }
+```
+
+**Esempio**. `Record<K, T>`
+
+```ts
+/**
+ * Construct a type with a set of properties K of type T
+ */
+type Record<K extends keyof any, T> = { [P in K]: T }
+```
+
+**Esercizio**. Tipizzare la funzione `pick` in modo che il tipo di ritorno sia il più preciso possibile
+
+```ts
+export declare function pick(ks: Array<string>, o: object): unknown
+```
+
+[./test/advanced/mapped-types/pick.ts](./test/advanced/mapped-types/pick.ts)
+
+TODO: altri esercizi sui mapped type
 
 # Definition file
 
