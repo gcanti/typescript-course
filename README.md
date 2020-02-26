@@ -28,11 +28,22 @@
   - [`as const`](#as-const)
 - [Definition file](#definition-file)
   - [Un problema serio: le API JavaScript](#un-problema-serio-le-api-javascript)
-- [TDD (Type Driven Development)](#tdd-type-driven-development)
 - [ADT (Algebraic Data Types)](#adt-algebraic-data-types)
-- [Error handling funzionale](#error-handling-funzionale)
+  - [Che cos'è un ADT?](#che-cos%C3%A8-un-adt)
+  - [Product types](#product-types)
+    - [Perchè "product" types?](#perch%C3%A8-product-types)
+    - [Quando posso usare un product type?](#quando-posso-usare-un-product-type)
+  - [Sum types](#sum-types)
+    - [Costruttori](#costruttori)
+    - [Pattern matching](#pattern-matching)
+    - [Perchè "sum" types?](#perch%C3%A8-sum-types)
+    - [Quando dovrei usare un sum type?](#quando-dovrei-usare-un-sum-type)
+  - [Functional error handling](#functional-error-handling)
+    - [Il tipo `Option`](#il-tipo-option)
+    - [Il tipo `Either`](#il-tipo-either)
+- [TDD (Type Driven Development)](#tdd-type-driven-development)
 - [Finite state machines](#finite-state-machines)
-- [Come migliorare la type inference delle fun- zioni polimorfiche](#come-migliorare-la-type-inference-delle-fun--zioni-polimorfiche)
+- [Come migliorare la type inference delle funzioni polimorfiche](#come-migliorare-la-type-inference-delle-funzioni-polimorfiche)
 - [Simulazione dei tipi nominali](#simulazione-dei-tipi-nominali)
 - [Refinements e smart constructors](#refinements-e-smart-constructors)
 - [Phantom types](#phantom-types)
@@ -40,6 +51,7 @@
 - [Validazione a runtime](#validazione-a-runtime)
 - [Covarianza e controvarianza](#covarianza-e-controvarianza)
 - [Parse, don't validate](#parse-dont-validate)
+- [Idea: building a type safe DSL for filter](#idea-building-a-type-safe-dsl-for-filter)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -1335,7 +1347,27 @@ export declare function all(ps: Array<Promise<unknown>>): Promise<unknown>
 
 ## `as const`
 
-TODO
+Dalla versione `3.4` è anche possibile usare le _const assertions_
+
+```ts
+// chapters/advanced/as-const.ts
+
+// const x1: (string | number)[]
+export const x1 = ['a', 1]
+
+// const x2: readonly ["a", 1]
+export const x2 = ['a', 1] as const
+```
+
+Funzionano anche con gli oggetti oltre che con le tuple
+
+```ts
+// const x3: { a: string; }
+export const x3 = { a: 'a' }
+
+// const x4: { readonly a: "a"; }
+export const x4 = { a: 'a' } as const
+```
 
 # Definition file
 
@@ -1361,15 +1393,472 @@ Possibili soluzioni:
 
 TODO: esempio per ciascuna di queste opzioni
 
-# TDD (Type Driven Development)
-
 # ADT (Algebraic Data Types)
 
-# Error handling funzionale
+Un buon primo passo quando si sta construendo una nuova applicazione è quello di definire il suo modello di dominio. TypeScript offre molti strumenti che aiutano in questo compito. Gli **Algebraic Data Types** (abbreviato in ADT) sono uno di questi strumenti.
+
+## Che cos'è un ADT?
+
+> In computer programming, especially functional programming and type theory, an algebraic data type is a kind of composite type, i.e., **a type formed by combining other types**.
+
+Due famiglie comuni di algebraic data types sono:
+
+- i **product types**
+- i **sum types**
+
+Cominciamo da quelli più familiari: i product type.
+
+## Product types
+
+Un product type è una collezione di tipi T<sub>i</sub> inidicizzati da un insieme `I`.
+
+Due membri comuni di questa famiglia sono le `n`-tuple, dove `I` è un intervallo di numeri naturali:
+
+```ts
+type Tuple1 = [string] // I = [0]
+type Tuple2 = [string, number] // I = [0, 1]
+type Tuple3 = [string, number, boolean] // I = [0, 1, 2]
+
+// Accessing by index
+type Fst = Tuple2[0] // string
+type Snd = Tuple2[1] // number
+```
+
+e le struct, ove `I` è un insieme di label:
+
+```ts
+// I = {"name", "age"}
+interface Person {
+  name: string
+  age: number
+}
+
+// Accessing by label
+type Name = Person['name'] // string
+type Age = Person['age'] // number
+```
+
+### Perchè "product" types?
+
+Se indichiamo con `C(A)` il numero di abitanti del tipo `A` (ovvero la sua **cardinalità**) allora vale la seguente uguaglianza:
+
+```ts
+C([A, B]) = C(A) * C(B)
+```
+
+> la cardinalità del prodotto è il prodotto delle cardinalità
+
+**Example**
+
+```ts
+type Hour = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12
+type Period = 'AM' | 'PM'
+type Clock = [Hour, Period]
+```
+
+Il tipo `Clock` ha `12 * 2 = 24` abitanti.
+
+### Quando posso usare un product type?
+
+Ogniqualvolta le sue conponenti sono **indipendenti**.
+
+```ts
+type Clock = [Hour, Period]
+```
+
+Qui `Hour` e `Period` sono indipendenti, ovvero il valore di `Hour` non influisce sul valore di `Period` e viceversa, tutte le coppie sono legali e hanno senso.
+
+## Sum types
+
+Un sum type è una struttura dati che contiene un valore che può assumere diversi tipi (ma fissi). Solo uno dei tipi può essere in uso in un dato momento, e un campo che fa da "tag" indica quale di questi è in uso.
+
+Nella documentazione ufficiale di TypeScript sono denominati _tagged union types_.
+
+**Example** (redux actions)
+
+```ts
+type Action =
+  | {
+      type: 'ADD_TODO'
+      text: string
+    }
+  | {
+      type: 'UPDATE_TODO'
+      id: number
+      text: string
+      completed: boolean
+    }
+  | {
+      type: 'DELETE_TODO'
+      id: number
+    }
+```
+
+Il campo `type` fa da tag e assicura che i suoi membri siano disgiunti.
+
+**Nota**. Il nome del campo che fa da tag è a discrezione dello sviluppatore, non deve essere necessariamente "type".
+
+### Costruttori
+
+Un sum type con `n` membri necessita di (almeno) `n` **costruttori**, uno per ogni membro:
+
+```ts
+const add = (text: string): Action => ({
+  type: 'ADD_TODO',
+  text
+})
+
+const update = (id: number, text: string, completed: boolean): Action => ({
+  type: 'UPDATE_TODO',
+  id,
+  text,
+  completed
+})
+
+const del = (id: number): Action => ({
+  type: 'DELETE_TODO',
+  id
+})
+```
+
+I sum type possono essere **polimorfici** e **ricorsivi**.
+
+**Example** (linked lists)
+
+```ts
+//        ↓ type parameter
+type List<A> = { type: 'Nil' } | { type: 'Cons'; head: A; tail: List<A> }
+//                                                              ↑ recursion
+```
+
+### Pattern matching
+
+JavaScript non ha il [pattern matching](https://github.com/tc39/proposal-pattern-matching) (e quindi neanche TypeScript) tuttavia possiamo simularlo in modo grezzo tramite una funzione `fold`:
+
+```ts
+const fold = <A, R>(onNil: () => R, onCons: (head: A, tail: List<A>) => R) => (
+  fa: List<A>
+): R => (fa.type === 'Nil' ? onNil() : onCons(fa.head, fa.tail))
+```
+
+**Nota**. TypeScript offre una straordinaria feature legata ai sum type: **exhaustive check**. Ovvero il type checker è in grado di determinare se tutti i casi sono stati gestiti.
+
+**Example** (calculate the length of a `List` recursively)
+
+```ts
+const length: <A>(fa: List<A>) => number = fold(
+  () => 0,
+  (_, tail) => 1 + length(tail)
+)
+```
+
+### Perchè "sum" types?
+
+Vale la seguente uguaglianza:
+
+```ts
+C(A | B) = C(A) + C(B)
+```
+
+> la cardinalità della somma è la somma delle cardinalità
+
+**Example** (the `Option` type)
+
+```ts
+type Option<A> =
+  | { _tag: 'None' }
+  | {
+      _tag: 'Some'
+      value: A
+    }
+```
+
+Dalla formula generale `C(Option<A>) = 1 + C(A)` possiamo derivare per esempio la cardinalità di `Option<boolean>`: `1 + 2 = 3` abitanti.
+
+### Quando dovrei usare un sum type?
+
+Quando le sue componenti sarebbero **dipendenti** se implementate con un product type.
+
+**Example** (component props)
+
+```ts
+interface Props {
+  editable: boolean
+  onChange?: (text: string) => void
+}
+
+class Textbox extends React.Component<Props> {
+  render() {
+    if (this.props.editable) {
+      // error: Cannot invoke an object which is possibly 'undefined' :(
+      this.props.onChange(...)
+    }
+  }
+}
+```
+
+Il problema qui è che `Props` è modellato come un prodotto ma `onChange` **dipende** da `editable`.
+
+Un sum type è una scelta migliore:
+
+```ts
+type Props =
+  | {
+      type: 'READONLY'
+    }
+  | {
+      type: 'EDITABLE'
+      onChange: (text: string) => void
+    }
+
+class Textbox extends React.Component<Props> {
+  render() {
+    switch (this.props.type) {
+      case 'EDITABLE' :
+        this.props.onChange(...) // :)
+      ...
+    }
+  }
+}
+```
+
+**Example** (node callbacks)
+
+```ts
+declare function readFile(
+  path: string,
+  //         ↓ ---------- ↓ CallbackArgs
+  callback: (err?: Error, data?: string) => void
+): void
+```
+
+Il risultato è modellato con un prodotto:
+
+```ts
+type CallbackArgs = [Error | undefined, string | undefined]
+```
+
+tuttavia le sue componenti sono **dipendenti**: si riceve un errore **oppure** una stringa:
+
+| err         | data        | legal? |
+| ----------- | ----------- | ------ |
+| `Error`     | `undefined` | ✓      |
+| `undefined` | `string`    | ✓      |
+| `Error`     | `string`    | ✘      |
+| `undefined` | `undefined` | ✘      |
+
+Un sum type sarebbe una scelta migliore, ma quale?
+
+## Functional error handling
+
+Vediamo come gestire gli errori in modo funzionale.
+
+### Il tipo `Option`
+
+Il tipo `Option` rappresenta l'effetto di una computazione che può fallire oppure restituire un valore di tipo `A`:
+
+```ts
+// chapters/adt/Option.ts
+
+export type Option<A> =
+  | { _tag: 'None' } // represents a failure
+  | { _tag: 'Some'; value: A } // represents a success
+```
+
+Costruttori e pattern matching:
+
+```ts
+// a nullary constructor can be implemented as a constant
+export const none: Option<never> = { _tag: 'None' }
+
+export const some = <A>(value: A): Option<A> => ({ _tag: 'Some', value })
+
+export const fold = <A, R>(onNone: () => R, onSome: (a: A) => R) => (
+  fa: Option<A>
+): R => (fa._tag === 'None' ? onNone() : onSome(fa.value))
+```
+
+Il tipo `Option` può essere usato per evitare di lanciare eccezioni e/o rappresentare i valori opzionali, così possiamo passare da...
+
+```ts
+//                this is a lie ↓
+function head<A>(as: Array<A>): A {
+  if (as.length === 0) {
+    throw new Error('Empty array')
+  }
+  return as[0]
+}
+
+let s: string
+try {
+  s = String(head([]))
+} catch (e) {
+  s = e.message
+}
+```
+
+...in cui il type system è all'oscuro di un possibile fallimento, a...
+
+```ts
+//                              ↓ the type system "knows" that this computation may fail
+function head<A>(as: Array<A>): Option<A> {
+  return as.length === 0 ? none : some(as[0])
+}
+
+import { pipe } from 'fp-ts/lib/pipeable'
+
+const s = pipe(
+  head([]),
+  fold(
+    () => 'Empty array',
+    a => String(a)
+  )
+)
+```
+
+...ove la possibilità di errore è codificata nel type system.
+
+Interoperabilità
+
+Per questioni di interoperabilità con codice che non usa `Option` possiamo definire alcune funzioni di utility
+
+```ts
+export const fromNullable = <A>(a: A | null | undefined): Option<A> =>
+  a == null ? none : some(a)
+
+export const toNullable: <A>(fa: Option<A>) => A | null = fold(
+  () => null,
+  identity
+)
+
+export const toUndefined: <A>(fa: Option<A>) => A | undefined = fold(
+  () => undefined,
+  identity
+)
+```
+
+**Esercizio**. Definire la funzione `index` che, dato un array e un indice, restituisce l'elemento a quell'indice (se esiste)
+
+[./test/adt/index.ts](./test/adt/index.ts)
+
+**Esercizio**. Definire la funzione `updateAt` che, dato un array, un indice e una funzione, restituisce un nuovo array
+con la funzione applicata all'`i`-esimo suo elemento
+
+[./test/adt/updateAt.ts](./test/adt/updateAt.ts)
+
+### Il tipo `Either`
+
+Un uso comune di `Either` è come alternativa ad `Option` per gestire la possibilità di un valore mancante. In questo uso, `None` è sostituito da `Left` che contiene informazione utile. `Right` invece sostituisce `Some`. Per convenzione `Left` è usato per il fallimento mentre `Right` per il successo.
+
+```ts
+// chapters/adt/Either.ts
+
+export type Either<E, A> =
+  | { _tag: 'Left'; left: E } // represents a failure
+  | { _tag: 'Right'; right: A } // represents a success
+```
+
+Costruttori e pattern matching:
+
+```ts
+export const left = <E = never, A = never>(left: E): Either<E, A> => ({
+  _tag: 'Left',
+  left
+})
+
+export const right = <E = never, A = never>(right: A): Either<E, A> => ({
+  _tag: 'Right',
+  right
+})
+
+export const fold = <E, A, R>(
+  onLeft: (left: E) => R,
+  onRight: (right: A) => R
+) => (fa: Either<E, A>): R =>
+  fa._tag === 'Left' ? onLeft(fa.left) : onRight(fa.right)
+```
+
+Tornando all'esempio con la callback:
+
+```ts
+declare function readFile(
+  path: string,
+  callback: (err?: Error, data?: string) => void
+): void
+
+readFile('./myfile', (err, data) => {
+  let message: string
+  if (err !== undefined) {
+    message = `Error: ${err.message}`
+  } else if (data !== undefined) {
+    message = `Data: ${data.trim()}`
+  } else {
+    // should never happen
+    message = 'The impossible happened'
+  }
+  console.log(message)
+})
+```
+
+possiamo cambiare la sua firma in:
+
+```ts
+declare function readFile(
+  path: string,
+  callback: (result: Either<Error, string>) => void
+): void
+```
+
+e consumare l'API in questo modo:
+
+```ts
+import { flow } from 'fp-ts/lib/function'
+
+readFile(
+  './myfile',
+  flow(
+    fold(
+      err => `Error: ${err.message}`,
+      data => `Data: ${data.trim()}`
+    ),
+    console.log
+  )
+)
+```
+
+**Esercizio**. Modellare un albero binario e costruire il seguente albero
+
+```
+    1
+   / \
+  2   3
+     / \
+    4   5
+         \
+          6
+```
+
+[./test/adt/binary-tree.ts](./test/adt/binary-tree.ts)
+
+**Esercizio**. Modellare una struttura dati (chiamiamola `These`) che rappresenta alternativamente
+
+- un successo di tipo `A`
+- un errore bloccante di tipo `E`
+- un successo di tipo `A` e un errore non bloccante di tipo `E`
+
+e definire una funzione `fold` che simuli il pattern matching.
+
+[./test/adt/these.ts](./test/adt/these.ts)
+
+**Esercizio**. Tennis Kata: modellare il punteggio di un game.
+
+[./test/adt/tennis-kata.ts](./test/adt/tennis-kata.ts)
+
+# TDD (Type Driven Development)
 
 # Finite state machines
 
-# Come migliorare la type inference delle fun- zioni polimorfiche
+# Come migliorare la type inference delle funzioni polimorfiche
 
 # Simulazione dei tipi nominali
 
@@ -1432,3 +1921,7 @@ Il fatto di usare proprio `Either` non ha alcuna rilevanza, va bene qualsiasi al
 Lanciare invece non va bene perchè, evitando del tutto di menzionare la programmazione funzionale, in TypeScript non c'è alcuna sintassi per dichiarare il tipo di errore lanciato.
 
 Ora, prima di andare avanti, questo ragionamento è convincente? Perchè se non è convincente è inutile venderci qualcosa sopra.
+
+# Idea: building a type safe DSL for filter
+
+TODO?
