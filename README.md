@@ -1854,11 +1854,63 @@ e definire una funzione `fold` che simuli il pattern matching.
 
 [./test/adt/tennis-kata.ts](./test/adt/tennis-kata.ts)
 
+# Come migliorare la type inference delle funzioni polimorfiche
+
+Consideriamo la generica definizione di funzione
+
+![generica definizione di funzione](images/generic-polymorphic-function.png)
+
+Chiamiamo `A`, `B`, ecc... col nome di _gruppi di argomenti_ della funzione `f`.
+
+Quando la funzione definita è polimorfica, ogni gruppo di argomenti è sede di inferenza per TypeScript.
+
+**Esempio**. La seguente funzione ha un solo gruppo di argomenti e TypeScript è in grado di inferire correttamente tutti i type parameter coinvolti
+
+```ts
+// chapters/polymorphic.ts
+
+export declare function map<A, B>(f: (a: A) => B, fa: Array<A>): Array<B>
+
+map(s => s.length, ['foo'])
+```
+
+se consideriamo la versione _curried_ di `map` le cose cambiano
+
+```ts
+export declare function mapCurried<A, B>(
+  f: (a: A) => B
+): (fa: Array<A>) => Array<B>
+
+// $ExpectError
+mapCurried(s => s.length)(['foo']) // Object is of type 'unknown'
+```
+
+TypeScript non è in grado di inferire il type parameter `A` nel primo gruppo di argomenti e gli assegna il tipo `unknown`.
+Lo sviluppatore perciò deve correggere la situazione aggiungendo una type annotation esplicita alla callback
+
+```ts
+mapCurried((s: string) => s.length)(['foo']) // ok
+```
+
+oppure specificando i type parameter all call site
+
+```ts
+mapCurried<string, number>(s => s.length)(['foo']) // ok
+```
+
+È però possibile migliorare la type inference semplicemente scambiando l'ordine dei gruppi di argomenti
+
+```ts
+export declare function mapCurriedFlipped<A>(
+  fa: Array<A>
+): <B>(f: (a: A) => B) => Array<B>
+
+mapCurriedFlipped(['foo'])(s => s.length) // ok
+```
+
 # TDD (Type Driven Development)
 
 # Finite state machines
-
-# Come migliorare la type inference delle funzioni polimorfiche
 
 # Simulazione dei tipi nominali
 
