@@ -41,10 +41,14 @@
   - [Functional error handling](#functional-error-handling)
     - [Il tipo `Option`](#il-tipo-option)
     - [Il tipo `Either`](#il-tipo-either)
+- [Come migliorare la type inference delle funzioni polimorfiche](#come-migliorare-la-type-inference-delle-funzioni-polimorfiche)
+- [Simulazione dei tipi nominali: smart constructor e branded type](#simulazione-dei-tipi-nominali-smart-constructor-e-branded-type)
+  - [Il problema](#il-problema)
+  - [La ricetta](#la-ricetta)
+  - [Una possibile implementazione: i branded types](#una-possibile-implementazione-i-branded-types)
+  - [Conclusione](#conclusione)
 - [TDD (Type Driven Development)](#tdd-type-driven-development)
 - [Finite state machines](#finite-state-machines)
-- [Come migliorare la type inference delle funzioni polimorfiche](#come-migliorare-la-type-inference-delle-funzioni-polimorfiche)
-- [Simulazione dei tipi nominali](#simulazione-dei-tipi-nominali)
 - [Refinements e smart constructors](#refinements-e-smart-constructors)
 - [Phantom types](#phantom-types)
 - [Newtypes](#newtypes)
@@ -1908,11 +1912,130 @@ export declare function mapCurriedFlipped<A>(
 mapCurriedFlipped(['foo'])(s => s.length) // ok
 ```
 
+# Simulazione dei tipi nominali: smart constructor e branded type
+
+A volte abbiamo bisogno di garanzie sui valori trattati dal nostro programma che vanno al di là di quello che mette a disposizione ufficialmente il type checker di TypeScript. Gli _smart constructor_ possono essere utilizzati a questo scopo.
+
+## Il problema
+
+```ts
+interface Person {
+  name: string
+  age: number
+}
+
+function person(name: string, age: number): Person {
+  return { name, age }
+}
+
+const p = person('', -1.2) // no error
+```
+
+Come potete vedere `string` e `number` sono tipi molto permissivi. E' possibile definire una stringa non vuota? O i numeri positivi? O gli interi? O gli interi positivi?
+
+Più in generale:
+
+> come posso definire staticamente un **raffinamento** di un tipo `T`?
+
+## La ricetta
+
+1. definire un tipo `R` che rappresenta il raffinamento
+2. **non** esportare un costruttore di `R`
+3. esportare una funzione (lo **smart constructor**) con la seguente firma
+
+```ts
+make: (t: T) => Option<R>
+```
+
+**Nota**. L'uso di `Option` non è strettamente necessario, potete usare un altro tipo che rappresenti un'operazione che può fallire.
+
+Concentriamoci sul primo punto, che è quello più difficile
+
+## Una possibile implementazione: i branded types
+
+Un **branded type** è un tipo `T` intersecato con un brand _unico_
+
+```ts
+export type Branded = T & Brand
+```
+
+Proviamo a definire `NonEmptyString` seguendo la ricetta:
+
+1. definire il tipo `NonEmptyString` che rappresenta il raffinamento
+
+```ts
+// chapters/NonEmptyString.ts
+
+export interface NonEmptyStringBrand {
+  readonly NonEmptyString: unique symbol // ensures uniqueness across modules / packages
+}
+
+export type NonEmptyString = string & NonEmptyStringBrand
+```
+
+2. **non** esportare un costruttore per `NonEmptyString`
+
+```ts
+// DON'T do this
+export function nonEmptyString(s: string): NonEmptyString { ... }
+```
+
+3. esportare uno smart constructor `make: (s: string) => Option<NonEmptyString>`
+
+```ts
+import { Option, none, some } from 'fp-ts/lib/Option'
+
+// runtime check implemented as a custom type guard
+function isNonEmptyString(s: string): s is NonEmptyString {
+  return s.length > 0
+}
+
+export function makeNonEmptyString(s: string): Option<NonEmptyString> {
+  return isNonEmptyString(s) ? some(s) : none
+}
+```
+
+Facciamo la stessa cosa per il campo `age`
+
+```ts
+export interface NaturalBrand {
+  readonly Natural: unique symbol
+}
+
+export type Natural = number & NaturalBrand
+
+function isNatural(n: number): n is Natural {
+  return Number.isInteger(n) && n >= 0
+}
+
+export function makeNatural(n: number): Option<Natural> {
+  return isNatural(n) ? some(n) : none
+}
+```
+
+Ora possiamo usarli per meglio modellare `Person`
+
+```ts
+interface Person {
+  name: NonEmptyString
+  age: Int
+}
+
+function person(name: NonEmptyString, age: Int): Person {
+  return { name, age }
+}
+
+// $ExpectError
+person('', -1.2)
+```
+
+## Conclusione
+
+Potrebbe sembrare che stiamo solo spingendo l'onere di effettuare il check a runtime al chiamante. E' così, ma il chiamante a sua volta può spingere l'onere al suo chiamante, e così via fino a raggiungere il confine del sistema, dove comunque si _dovrebbe_ fare validazione dell'input in ogni caso.
+
 # TDD (Type Driven Development)
 
 # Finite state machines
-
-# Simulazione dei tipi nominali
 
 # Refinements e smart constructors
 
