@@ -2033,13 +2033,152 @@ person('', -1.2)
 
 Potrebbe sembrare che stiamo solo spingendo l'onere di effettuare il check a runtime al chiamante. E' così, ma il chiamante a sua volta può spingere l'onere al suo chiamante, e così via fino a raggiungere il confine del sistema, dove comunque si _dovrebbe_ fare validazione dell'input in ogni caso.
 
+**Esercizio**. Implementare la funzione `inverse(x) = 1 / x` non definita per `x = 0`
+
+[./test/smart/inverse.ts](./test/smart/inverse.ts)
+
+# Phantom types
+
+Un _phantom type_ è un tipo polimorfico tale che almeno un suo type parameter non compare alla destra della sua definizione
+
+```ts
+type Phantom<A> = { value: string }
+```
+
+Qui `Phantom` è un phantom type e `A` è un _phantom type parameter_, dato che non compare nella sua definizione.
+
+Dato che TypeScript ha un type system strutturale dobbiamo però scegliere un encoding diverso.
+
+**Esercizio**. Perchè?
+
+Per esempio possiamo utilizzare una classe con una phantom property
+
+```ts
+export class Phantom<S> {
+  private readonly S!: S
+  constructor(readonly value: string) {}
+}
+```
+
+Ma se il type parameter non è realmente usato nella definizione, a cosa può servire?
+
+E' possibile sfruttarlo per appoggiare dell'informazione aggiuntiva, per esempio uno stato.
+
+## Un possibile scenario di esempio
+
+Supponiamo che abbiate una API con la seguente firma
+
+```ts
+declare function storePassword(password: string): void
+```
+
+magari salva l'input in un database o chiama una API interna (il tipo di ritorno non importa per questo esempio).
+
+Ora quello che volete assicurare è che l'input di questa API, prima di essere chiamata, sia validato e la password criptata.
+
+Inoltre supponiamo che questo processo di validazione sia costoso, perciò volete assicurarvi che venga fatto solo una volta, cosa potete fare?
+
+## Soluzione
+
+Incominciamo con una definizione
+
+```ts
+export class Data<S> {
+  private readonly S!: S
+  constructor(readonly value: string) {}
+}
+```
+
+La classe `Data` appare strana a prima vista dato che il type parameter non è usato e potrebbe essere qualsiasi cosa senza che questo influisca sul valore interno. Infatti qualcuno potrebbe scrivere
+
+```ts
+function changeType<A, B>(data: Data<A>): Data<B> {
+  return new Data(data.value)
+}
+```
+
+per passare da un tipo ad un altro.
+
+Tuttavia, come abbiamo visto per gli smart constructor, se il costruttore di `Data` non è esportato allora gli utenti della libreria che definisce `Data` non sono in grado di definire una funzione come quella sopra, così il type parameter può essere assegnato o cambiato solo da funzioni della libreria.
+
+Possiamo perciò scrivere
+
+```ts
+import { Option, some, none } from 'fp-ts/lib/Option'
+
+export type Unvalidated = 'Unvalidated'
+export type Validated = 'Validated'
+export type Encrypted = 'Encrypted'
+export type State = Unvalidated | Validated | Encrypted
+
+const isNonEmptyString = (s: string): boolean => s.length > 0
+
+export class Data<S extends State> {
+  private readonly S!: S
+  private constructor(readonly value: string) {}
+
+  static make(input: string): Data<Unvalidated> {
+    return new Data(input)
+  }
+
+  static validate(data: Data<Unvalidated>): Option<Data<Validated>> {
+    return isNonEmptyString(data.value) ? some(new Data(data.value)) : none
+  }
+
+  static encrypt(data: Data<Validated>): Data<Encrypted> {
+    const encryption = data.value // <= some encryption process
+    return new Data(encryption)
+  }
+}
+```
+
+e modificare la firma della nostra API in
+
+```ts
+declare function storePassword(password: Data<Encrypted>): void
+```
+
+Proviamo ad utilizzare la libreria in modo non corretto
+
+```ts
+storePassword('foo') // Argument of type '"foo"' is not assignable to parameter of type 'Data<"Encrypted">'
+
+storePassword(Data.make('foo')) // Argument of type 'Data<"Unvalidated">' is not assignable to parameter of type 'Data<"Encrypted">'
+
+const validated = Data.validate(Data.make('foo'))
+if (validated) {
+  storePassword(validated) // Argument of type 'Data<"Validated">' is not assignable to parameter of type 'Data<"Encrypted">'
+
+  storePassword(Data.encrypt(validated)) // ok
+}
+```
+
+In più possiamo definire delle funzioni che possono lavorare con qualsiasi tipo di `Data` senza che possiamo inavvertitamente rendere validi dei dati non validi
+
+```ts
+static toUpperCase<S extends Unvalidated | Validated>(
+  data: Data<S>
+): Data<S> {
+  return new Data(data.value.toUpperCase())
+}
+```
+
+Un ultima cosa, cosa succede se proviamo a validare i dati **due volte**?
+
+```ts
+const validated = Data.validate(Data.make('foo'))
+if (validated) {
+  Data.validate(validated) // Argument of type 'Data<"Validated">' is not assignable to parameter of type 'Data<"Unvalidated">'
+}
+```
+
+Questa tecnica è perfetta per validare l'input di una web application. Possiamo assicurare **staticamente** e con quasi **zero overhead** che i dati siano stati validato **una e una volta sola** ogni volta che occorre, altrimenti riceviamo un errore a compile-time.
+
 # TDD (Type Driven Development)
 
 # Finite state machines
 
 # Refinements e smart constructors
-
-# Phantom types
 
 # Newtypes
 
