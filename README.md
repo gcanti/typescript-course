@@ -1871,7 +1871,7 @@ Quando la funzione definita è polimorfica, ogni gruppo di argomenti è sede di 
 **Esempio**. La seguente funzione ha un solo gruppo di argomenti e TypeScript è in grado di inferire correttamente tutti i type parameter coinvolti
 
 ```ts
-// chapters/polymorphic.ts
+// chapters/polymorphic/polymorphic.ts
 
 export declare function map<A, B>(f: (a: A) => B, fa: Array<A>): Array<B>
 
@@ -1964,7 +1964,7 @@ Proviamo a definire `NonEmptyString` seguendo la ricetta:
 1. definire il tipo `NonEmptyString` che rappresenta il raffinamento
 
 ```ts
-// chapters/NonEmptyString.ts
+// chapters/smart-constructor/NonEmptyString.ts
 
 export interface NonEmptyStringBrand {
   readonly NonEmptyString: unique symbol // ensures uniqueness across modules / packages
@@ -2178,6 +2178,51 @@ if (validated) {
 
 Questa tecnica è perfetta per validare l'input di una web application. Possiamo assicurare **staticamente** e con quasi **zero overhead** che i dati siano stati validato **una e una volta sola** ogni volta che occorre, altrimenti riceviamo un errore a compile-time.
 
+## Un `EventEmitter` type-safe.
+
+Supponiamo di dover modellare un `EventEmitter`
+
+```ts
+export interface EventEmitter {
+  emit: (name: string, data: unknown) => void
+  listen: (name: string, handler: (data: unknown) => void) => void
+}
+```
+
+Questo modello è insoddisfacente
+
+- non c'è relazione tra l'evento e i dati associati
+- non c'è relazione tra l'evento e il relativo listener
+
+Si può rimediare definendo un phantom type `Event` che immagazzina il tipo di dato relativo ad un evento
+
+```ts
+export class Event<D> {
+  private readonly D!: D
+  constructor(readonly name: string) {}
+}
+
+const evt1 = new Event<string>('evt1')
+const evt2 = new Event<number>('evt2')
+
+interface EventEmitter {
+  emit: <D>(evt: Event<D>, data: D) => void
+  listen: <D>(evt: Event<D>, handler: (data: D) => void) => void
+}
+
+declare const ee: EventEmitter
+
+ee.emit(evt1, 'foo') // ok
+
+// $ExpectError
+ee.emit(evt1, 1)
+
+ee.emit(evt2, 1) // ok
+
+ee.listen(evt1, data => console.log(data.trim()))
+ee.listen(evt2, data => console.log(data * 2))
+```
+
 # TDD (Type Driven Development)
 
 > "Type driven development" is a technique used to split a problem into a set of smaller problems, letting the type checker suggest the concrete implementation, or at least helping us getting there.
@@ -2205,6 +2250,131 @@ export declare function sequence<A>(
 [live coding...](./chapters/tdd/sequence.ts)
 
 # Finite state machines
+
+Vediamo come i phantom type possano essere sfruttati per definire una macchina a stati finiti.
+
+**Esempio**. Modellare la seguente macchina a stati finiti (operazioni su una `Door`), mantenendo il conteggio delle
+volte in cui il campanello è stato suonato
+
+![](images/fsm.png)
+
+L'implementazione si basa su questi due principi
+
+- gli stati sono rappresentati da una struttura dati `Door` contenente il conteggio e una indicazione dello stato corrente
+- le transizioni sono rappresentate da funzioni
+
+Ecco il modello
+
+```ts
+// chapters/fsm/door.ts
+
+export type Open = 'Open'
+export type Closed = 'Closed'
+export type State = Open | Closed
+
+export class Door<S extends State> {
+  private readonly S!: S
+  constructor(readonly count: number) {}
+}
+```
+
+e lo stato inziale
+
+```ts
+export const start: Door<Closed> = new Door(0)
+```
+
+Ora definiamo una operazione per ogni arco del grafo
+
+```ts
+export function close(door: Door<Open>): Door<Closed> {
+  return new Door(door.count)
+}
+
+export function open(door: Door<Closed>): Door<Open> {
+  return new Door(door.count)
+}
+
+export function ring(door: Door<Closed>): Door<Closed> {
+  return new Door(door.count + 1)
+}
+```
+
+La corretta successione delle operazioni ora è assicurata staticamente
+
+```ts
+// $ExpectError
+close(start)
+
+// $ExpectError
+ring(open(start))
+
+open(ring(close(open(ring(start))))) // ok
+```
+
+Volendo le operazioni possono anche essere definite come metodi, il che rende più comodo concatenarle.
+
+Per farlo possiamo sfruttare la possibilità di annotare `this`.
+
+Inoltre posso imporre uno stato iniziale rendendo il costruttore privato
+
+```ts
+// chapters/fsm/door-class.ts
+
+export type Open = 'Open'
+export type Closed = 'Closed'
+export type State = Open | Closed
+
+export class Door<S extends State> {
+  private readonly S!: S
+  static start: Door<Closed> = new Door(0)
+  private constructor(readonly count: number) {}
+  open(this: Door<Closed>): Door<Open> {
+    return new Door(this.count)
+  }
+  close(this: Door<Open>): Door<Closed> {
+    return new Door(this.count)
+  }
+  ring(this: Door<Closed>): Door<Closed> {
+    return new Door(this.count + 1)
+  }
+}
+```
+
+Ancora una volta la corretta successione delle operazioni è assicurata staticamente
+
+```ts
+// $ExpectError
+Door.start.close()
+
+// $ExpectError
+Door.start.open().ring()
+
+Door.start
+  .ring()
+  .open()
+  .close()
+  .ring()
+  .open() // ok
+```
+
+Posso anche richiedere un esplicito stato finale semplicemente aggiungendo una type annotation esplicita
+
+```ts
+// $ExpectError
+export const x: Door<Closed> = Door.start.ring().open()
+
+export const y: Door<Closed> = Door.start
+  .ring()
+  .open()
+  .close() // ok
+```
+
+**Esercizio**. Modellare la seguente macchina a stati finiti (ciclo di vita di una `Response` di `express`)
+
+![](images/express-fsm.png)
+
+L'obbiettivo principale è evitare staticamente che vengano aggiunti degli header una volta che si è mandato il body.
 
 # Validazione a runtime
 

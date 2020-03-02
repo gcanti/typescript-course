@@ -1,4 +1,4 @@
-// chapters/NonEmptyString.ts
+// chapters/smart-constructor/NonEmptyString.ts
 
 export interface NonEmptyStringBrand {
   readonly NonEmptyString: unique symbol // ensures uniqueness across modules / packages

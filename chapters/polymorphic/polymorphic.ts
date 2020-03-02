@@ -1,4 +1,4 @@
-// chapters/polymorphic.ts
+// chapters/polymorphic/polymorphic.ts
 
 export declare function map<A, B>(f: (a: A) => B, fa: Array<A>): Array<B>
 
