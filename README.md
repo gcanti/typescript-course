@@ -2037,6 +2037,10 @@ Potrebbe sembrare che stiamo solo spingendo l'onere di effettuare il check a run
 
 [./test/smart/inverse.ts](./test/smart/inverse.ts)
 
+## Newtypes
+
+TODO
+
 # Phantom types
 
 Un _phantom type_ è un tipo polimorfico tale che almeno un suo type parameter non compare alla destra della sua definizione
@@ -2176,11 +2180,31 @@ Questa tecnica è perfetta per validare l'input di una web application. Possiamo
 
 # TDD (Type Driven Development)
 
+> "Type driven development" is a technique used to split a problem into a set of smaller problems, letting the type checker suggest the concrete implementation, or at least helping us getting there.
+
+## Type hole
+
+> The idea is to implement the tiny part of a function that you know how to do, and then ask the compiler for help on the rest of it. It's an iterative process. It's a discussion with the compiler. Each step of the way, you get a little closer to the right answer, and after enough iterations your function has written itself — even if you're not entirely sure _how_.
+
+In TypeScript non c'è supporto per i type hole ma possono essere simulati:
+
+```ts
+declare function _<T>(): T
+```
+
+**Esempio**. Reimplementare `Promise.all`
+
+```ts
+// chapters/tdd/sequence.ts
+
+export declare function sequence<A>(
+  promises: Array<Promise<A>>
+): Promise<Array<A>>
+```
+
+[live coding...](./chapters/tdd/sequence.ts)
+
 # Finite state machines
-
-# Refinements e smart constructors
-
-# Newtypes
 
 # Validazione a runtime
 
