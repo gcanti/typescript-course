@@ -2039,7 +2039,128 @@ Potrebbe sembrare che stiamo solo spingendo l'onere di effettuare il check a run
 
 ## Newtypes
 
-TODO
+Non sempre i tipi predefiniti, in particolare quelli primitivi, riescono a modellare in modo soddisfacente un sistema,
+si consideri la seguente funzione
+
+```ts
+export declare function getPost(a: string, b: string): string
+```
+
+Cosa sono `a` e `b`? Usiamo dei nomi più parlanti per gli argomenti
+
+```ts
+export declare function getPost(
+  postId: string,
+  facebookToken: string
+): string
+```
+
+e anche per i tipi
+
+```ts
+export type PostId = string
+export type FacebookToken = string
+export type PostContent = string
+
+export declare function getPost(
+  postId: PostId,
+  facebookToken: FacebookToken
+): PostContent
+```
+
+ma il type system vede ancora `(string, string) => string` (e anche voi in VSCode).
+
+Posso per errore scambiare l'ordine di `PostId` e `FacebookToken` essendo tutte e due stringhe, il type checker non mi avverte.
+
+Un altro esempio tipico sono i valori espressi in una qualche unità di misura
+
+```ts
+export type Celsius = number
+export type Fahrenheit = number
+
+export function celsius2fahrenheit(celsius: Celsius): Fahrenheit {
+  return celsius * 1.8 + 32
+}
+
+const cel: Celsius = 1
+
+celsius2fahrenheit(cel)
+
+const far: Fahrenheit = 33.8
+
+celsius2fahrenheit(far) // oops...
+```
+
+Abbiamo visto che i branded type possono risolvere questo tipo di problemi ma non sono _opachi_, nel senso che un branded type con base `number` è ancora visto come un `number` dal type system.
+
+Se non vogliamo che ciò accada possiamo rivolgerci ai _newtype_
+
+> A common programming practice is to define a type whose representation is identical to an existing one but which has a separate identity in the type system.
+
+Vediamone una possibile implementazione.
+
+```ts
+// chapters/smart-constructor/newtype.ts
+
+export interface Celsius {
+  readonly Celsius: unique symbol
+}
+
+export interface Fahrenheit {
+  readonly Fahrenheit: unique symbol
+}
+```
+
+Molto simili ai branded type, ma non c'è alcuna intersezione con il tipo base.
+
+Ora come possiamo implementare la funzione `celsius2fahrenheit`?
+
+```ts
+export function celsius2fahrenheit(celsius: Celsius): Fahrenheit {
+  return ?
+}
+```
+
+Notiamo che un newtype è _isomorfo_ al suo tipo base, per esempio `Celsius` è isomorfo a `number`.
+
+Cos'è un _isomorifsmo_ e come possiamo modellarlo in TypeScript?
+
+**Definizione**. Un _isomorfismo_ `f: S ⟶ A` è una funzione invertibile, ovvero esiste una funzione `f': A ⟶ S` tale che
+
+```
+f ∘ f' = f' ∘ f = identity
+```
+
+```ts
+export interface Iso<S, A> {
+  readonly unwrap: (s: S) => A
+  readonly wrap: (a: A) => S
+}
+```
+
+possiamo definire un `Iso` per `Celsius` e per `Fahrenheit`
+
+```ts
+const unsafeCoerce = <A, B>(a: A): B => a as any
+
+const celsiusIso: Iso<Celsius, number> = {
+  unwrap: unsafeCoerce,
+  wrap: unsafeCoerce
+}
+
+const fahrenheitIso: Iso<Fahrenheit, number> = {
+  unwrap: unsafeCoerce,
+  wrap: unsafeCoerce
+}
+```
+
+e con il loro aiuto implementare `celsius2fahrenheit`
+
+```ts
+export function celsius2fahrenheit(celsius: Celsius): Fahrenheit {
+  return fahrenheitIso.wrap(celsiusIso.unwrap(celsius) * 1.8 + 32)
+}
+```
 
 # Phantom types
 
