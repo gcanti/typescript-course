@@ -1024,11 +1024,9 @@ export declare function pick(ks: Array<string>, o: object): unknown
 
 [./test/advanced/mapped-types/pick.ts](./test/advanced/mapped-types/pick.ts)
 
-TODO: altri esercizi sui mapped type
-
 ## Subtyping e type parameter
 
-Come abbiamo gà visto la keyword `extends` può essere usata per esprimere una relazione tra type parameter, una relazione di _subtyping_.
+Come abbiamo già visto la keyword `extends` può essere usata per esprimere una relazione tra type parameter, una relazione di _subtyping_.
 
 ```
 A extends B
@@ -1390,12 +1388,59 @@ In più spesso i definition file ufficiali non sono del tutto soddisfacenti.
 Possibili soluzioni:
 
 - cambiare libreria
-- definire un custom definition file
+- definire un custom definition file (difficile se la libreria esporta nativamente un `d.ts`)
 - definire una funzione wrapper con una tipizzazione sana
 - castare ad una tipizzazione sana
 - module augmentation / declaration merging
 
-TODO: esempio per ciascuna di queste opzioni
+**Esempio**. Correggere lodash (110.000.000 di download / mese)
+
+```ts
+// chapters/definition-file/flip.ts
+
+/*
+  lodash@4.17.15
+  @types/lodash@4.14.149
+ */
+import * as _ from 'lodash'
+
+const f = (a: number, b: string): number => a + b.trim().length
+
+/*
+
+  La funzione `flip` è definita con questa tipizzazione
+
+  flip<T extends (...args: any[]) => any>(func: T): T;
+
+*/
+const g = _.flip(f)
+
+g(1, 'a') // esplode a runtime: b.trim is not a function
+```
+
+Una possibile soluzione: module augmentation / declaration merging
+
+```ts
+declare module 'lodash' {
+  interface LoDashStatic {
+    flip<A, B, C>(f: (a: A, b: B) => C): (b: B, a: A) => C
+  }
+}
+
+// $ExpectError
+g(1, 'a')
+```
+
+Altra possibile soluzione: cast
+
+```ts
+/**
+ * type-safe `flip`
+ */
+export const flip: <A, B, C>(
+  f: (a: A, b: B) => C
+) => (b: B, a: A) => C = _.flip as any
+```
 
 # ADT (Algebraic Data Types)
 
